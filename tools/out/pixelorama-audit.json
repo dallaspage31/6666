@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "scannedAt": "2026-07-29T02:56:24Z",
+    "rootDirs": [
+      "assets/art/units",
+      "assets/art/vfx",
+      "assets/art/bosses",
+      "assets/art/backgrounds",
+      "assets/art/mossroad"
+    ],
+    "standardsFile": "tools/pixelorama-standards.json",
+    "totalFiles": 5
+  },
+  "summary": {
+    "inspectedUnitVfxFiles": 2,
+    "inspectedBossFiles": 1,
+    "inspectedOtherFiles": 2,
+    "nonTransparentCorner": 0,
+    "alphaBorderTouch": 0,
+    "fullCanvasAlphaBbox": 0,
+    "runtimeOversizedFrame": 1,
+    "fakeTransparencyVfx": 0,
+    "exactDuplicateGroups": 0,
+    "exactDuplicateFiles": 0,
+    "decodeFailures": 0,
+    "dimensionErrors": 0
+  },
+  "findings": {
+    "decodeFailures": [],
+    "dimensionErrors": [],
+    "duplicateGroups": []
+  }
+}

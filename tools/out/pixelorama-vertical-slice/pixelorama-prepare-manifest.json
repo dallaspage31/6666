@@ -1,0 +1,53 @@
+{
+  "generatedAt": "2026-07-29T03:18:58.818Z",
+  "layerContract": [
+    "body",
+    "weapon",
+    "offhand",
+    "fx",
+    "shadow-guide"
+  ],
+  "animationTags": [
+    "idle",
+    "walk",
+    "attack",
+    "hit",
+    "death",
+    "cast"
+  ],
+  "slices": [
+    {
+      "file": "units/wolf_idle_01.png",
+      "width": 192,
+      "height": 192,
+      "pivotX": null,
+      "pivotY": null,
+      "hasRealAlpha": true,
+      "labels": [
+        "unknown"
+      ]
+    },
+    {
+      "file": "vfx/fire_blast.png",
+      "width": 192,
+      "height": 192,
+      "pivotX": null,
+      "pivotY": null,
+      "hasRealAlpha": true,
+      "labels": [
+        "unknown"
+      ]
+    },
+    {
+      "file": "bosses/moss_guardian.png",
+      "width": 256,
+      "height": 256,
+      "pivotX": null,
+      "pivotY": null,
+      "hasRealAlpha": true,
+      "labels": [
+        "unknown"
+      ]
+    }
+  ]
+}

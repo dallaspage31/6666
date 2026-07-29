@@ -1,0 +1,70 @@
+{
+  "$schema": "./pixelorama-standards.schema.json",
+  "masterStandard": {
+    "unitCoreVFX": {
+      "width": 192,
+      "height": 192,
+      "description": "units and core VFX frames"
+    },
+    "uniqueBossStill": {
+      "width": 256,
+      "height": 256,
+      "description": "unique boss still images"
+    }
+  },
+  "layerContract": [
+    "body",
+    "weapon",
+    "offhand",
+    "fx",
+    "shadow-guide"
+  ],
+  "animationTags": [
+    "idle",
+    "walk",
+    "attack",
+    "hit",
+    "death",
+    "cast"
+  ],
+  "sampling": {
+    "background": "smooth",
+    "pixelUnitIcon": "nearest",
+    "painterlyOverlay": "smooth",
+    "contactShadow": "soft"
+  },
+  "strictSliceChecks": {
+    "realAlpha": true,
+    "transparentCorners": true,
+    "noBorderComponents": true,
+    "noBlankDuplicateFrames": true,
+    "pivotVarianceMax": 2,
+    "noBboxJumps": true,
+    "approvedPaletteOutline": true,
+    "correctDimensions": true,
+    "assetCatalogAndLicense": true
+  },
+  "visualMutationKits": [
+    "Frost",
+    "Void",
+    "Celestial",
+    "Poison",
+    "Frenzied",
+    "Treasure",
+    "armor-overlay",
+    "shield-overlay",
+    "frozen-shell",
+    "shadow-wisp",
+    "crown",
+    "treasure-bag"
+  ],
+  "allowlist": {
+    "itemSlotRarityBaseId": true,
+    "weaponArmorMotifPath": true,
+    "uidCharLength": true,
+    "itemNameControlHtml": true,
+    "affixGemWhitelist": true,
+    "inventoryLength": true,
+    "heroProgressionNumericBounds": true
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "taskforge-idle",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Taskforge Idle — Endless Evolution Master Roadmap implementation",
+  "scripts": {
+    "art:pixelorama:audit": "python3 tools/pixelorama-audit.py",
+    "art:pixelorama:prepare": "node tools/pixelorama-prepare.js",
+    "art:pixelorama:strict-slice": "node tools/pixelorama-strict-slice.js",
+    "test": "node --test test/**/*.test.js",
+    "test:e2e": "node --test test/e2e/**/*.test.js",
+    "test:effects": "node --test test/effects/**/*.test.js",
+    "test:engineering": "node --test test/engineering/**/*.test.js",
+    "assets:verify": "node tools/assets-verify.js",
+    "balance:v1": "node tools/balance-v1.js",
+    "balance:feel": "node tools/balance-feel.js",
+    "balance:frontier": "node tools/balance-frontier.js",
+    "test:performance": "node tools/perf-baseline.js",
+    "test:a11y": "node tools/a11y-gate.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint js/ tools/",
+    "desktop:check": "node tools/desktop-check.js",
+    "verify:release:quick": "npm run typecheck && npm run lint && npm test && npm run test:e2e && npm run assets:verify && npm run balance:v1 && npm run balance:feel && npm run balance:frontier && npm run test:engineering && npm run desktop:check && npm run test:performance && npm run test:a11y && npm run art:pixelorama:strict-slice",
+    "generate:sfx": "node tools/generate-sfx.js",
+    "generate:sfx:missing": "node tools/generate-sfx.js --missing"
+  },
+  "dependencies": {
+    "sharp": "^0.33.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "@playwright/test": "^1.45.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0",
+    "python": ">=3.10.0"
+  }
+}
