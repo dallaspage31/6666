@@ -1,5 +1,6 @@
 import { DeterministicRNG } from './01-rng.js';
 import { GameState } from './02-state.js';
+import { DamageSystem } from './12-damage.js';
 
 export class Engine {
   constructor() {
@@ -71,7 +72,6 @@ export class Engine {
   updateWave(wave, dt) {
     for (const enemy of wave.enemies) {
       if (enemy.hp <= 0) continue;
-      enemy.update(dt);
       this.processCombat(enemy, dt);
     }
     this.cleanupDeadEnemies(wave);
@@ -81,19 +81,26 @@ export class Engine {
     const hero = this.state.hero;
     const now = performance.now();
 
-    if (now - enemy.lastAttack >= enemy.attackInterval) {
-      const damage = Math.max(1, enemy.damage - hero.baseArmor);
-      hero.hp -= damage;
+    if (now - (enemy.lastAttack || 0) >= (enemy.attackInterval || 1000)) {
+      const result = DamageSystem.apply(enemy, hero);
       enemy.lastAttack = now;
+      GAME.renderer?.addWorldFx?.(GAME.renderer.width * 0.7, GAME.renderer.laneY, '#ff4444', 3);
+      if (hero.hp <= 0) {
+        this.emit('heroDeath');
+        if (this.state.frontier?.active) {
+          this.frontierDirector.writeFrontierResult(false, this.state.frontier.depth);
+          this.frontierDirector.leaveExpedition();
+        }
+      }
     }
 
-    if (now - hero.lastAttack >= hero.baseAttackInterval) {
-      const isCrit = Math.random() < hero.critChance;
-      const damage = (isCrit ? hero.baseAttackDamage * hero.critDamage : hero.baseAttackDamage) - enemy.armor;
-      enemy.hp -= Math.max(1, damage);
+    if (now - (hero.lastAttack || 0) >= (hero.baseAttackInterval || 1000)) {
+      const result = DamageSystem.apply(hero, enemy);
       hero.lastAttack = now;
-      if (hero.lifeSteal > 0) {
-        hero.hp = Math.min(hero.maxHp, hero.hp + damage * hero.lifeSteal);
+      const critColor = result.isCrit ? '#ffcc00' : '#22b14c';
+      GAME.renderer?.addWorldFx?.(GAME.renderer.width * 0.5, GAME.renderer.laneY, critColor, result.isCrit ? 8 : 3);
+      if (enemy.hp <= 0) {
+        this.emit('itemDrop', enemy);
       }
     }
   }
@@ -135,5 +142,27 @@ export class Engine {
 
   render() {
     this.emit('render', this.state);
+  }
+
+  compressOfflineLoot(drops, settings = {}) {
+    const keep = settings.rareKeep || 'KEEP';
+    const summary = { total: drops.length, kept: [], gold: 0, salvaged: 0 };
+    const top5 = drops
+      .filter((d) => ['epic', 'mythic', 'eternal'].includes(d.rarity))
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+      .slice(0, 5);
+
+    for (const drop of drops) {
+      if (top5.includes(drop)) {
+        summary.kept.push(drop);
+      } else if (drop.rarity === 'rare') {
+        if (keep === 'KEEP') summary.kept.push(drop);
+        else { summary.gold += 10; summary.salvaged++; }
+      } else if (['common', 'uncommon'].includes(drop.rarity)) {
+        summary.gold += drop.rarity === 'common' ? 5 : 10;
+        summary.salvaged++;
+      }
+    }
+    return summary;
   }
 }

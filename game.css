@@ -22,16 +22,126 @@ html, body {
   flex-direction: column;
 }
 
+#hud-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid #000;
+}
+
+#hud-left, #hud-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+button {
+  background: #2a3142;
+  color: var(--text);
+  border: 1px solid #3a4152;
+  padding: 4px 10px;
+  font-family: monospace;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #3a4152;
+}
+
+.panel {
+  position: absolute;
+  top: 36px;
+  left: 10px;
+  background: var(--panel);
+  border: 1px solid #000;
+  padding: 8px;
+  min-width: 160px;
+}
+
+.panel.hidden { display: none; }
+
+.panel-header {
+  font-weight: bold;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #000;
+  padding-bottom: 4px;
+}
+
 #combat-canvas {
   background: #0f1219;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+  flex: 1;
+  width: 100%;
 }
 
 .compact #title-logo { display: none; }
 .compact #class-select { max-height: 140px; overflow-y: auto; }
 .compact #class-cards { gap: 4px; }
 .compact #fight-btn { margin-top: 4px; }
+
+.map-card {
+  margin-top: 8px;
+  padding: 8px;
+  background: #1a1f2e;
+  border: 1px solid #000;
+}
+
+.map-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: #ffcc00;
+}
+
+.map-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.hidden { display: none; }
+
+.title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--panel);
+  border-top: 1px solid #000;
+}
+
+#title-logo {
+  font-weight: bold;
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.class-cards {
+  display: flex;
+  gap: 6px;
+}
+
+.class-card {
+  background: #2a3142;
+  border: 1px solid #3a4152;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.class-card.active {
+  border-color: var(--accent);
+  background: #1a2e1f;
+}
+
+.compact #title-logo { display: none; }
+.compact #class-select { max-height: 140px; overflow-y: auto; }
+.compact #class-cards { gap: 4px; }
+.compact #fight-btn { margin-top: 4px; }
+.compact .title-bar { padding: 4px 8px; }
+.compact .class-card { padding: 2px 6px; font-size: 10px; }
 
 @media (max-width: 1280px) {
   #combat-canvas { height: 205px; }

@@ -1,6 +1,7 @@
 import { GameState } from './02-state.js';
+import { BigIntDecimal } from './00-bigint.js';
 
-const RATIO = 10000;
+const RATIO = new BigIntDecimal(10000);
 
 export class ForgeTokens {
   constructor(state) {
@@ -8,34 +9,34 @@ export class ForgeTokens {
   }
 
   mint(amount) {
-    const safe = Math.floor(amount);
-    const tokens = Math.floor(safe / RATIO);
-    const remainder = safe % RATIO;
-    if (tokens <= 0) return null;
+    const safe = new BigIntDecimal(Math.floor(amount));
+    const tokens = safe.div(RATIO);
+    const remainder = safe.mod(RATIO);
+    if (tokens.isZero()) return null;
 
-    this.state.forgeEconomy.tokens = this.addStrings(this.state.forgeEconomy.tokens, String(tokens));
-    this.state.forgeEconomy.lifetimeMinted = this.addStrings(this.state.forgeEconomy.lifetimeMinted, String(tokens));
-    this.state.forgeEconomy.mintRemainder += remainder;
-    return { tokens, remainder, newTotal: this.state.forgeEconomy.tokens };
+    this.state.forgeEconomy.tokens = this.addStrings(this.state.forgeEconomy.tokens, tokens.toString());
+    this.state.forgeEconomy.lifetimeMinted = this.addStrings(this.state.forgeEconomy.lifetimeMinted, tokens.toString());
+    this.state.forgeEconomy.mintRemainder = remainder.toNumber();
+    return { tokens: tokens.toNumber(), remainder: remainder.toNumber(), newTotal: this.state.forgeEconomy.tokens };
   }
 
   previewMint(amount) {
-    const safe = Math.floor(amount);
-    const tokens = Math.floor(safe / RATIO);
-    const remainder = safe % RATIO;
-    return { previewTokens: tokens, previewRemainder: remainder, remainingGold: safe - tokens * RATIO };
+    const safe = new BigIntDecimal(Math.floor(amount));
+    const tokens = safe.div(RATIO);
+    const remainder = safe.sub(tokens.mul(RATIO));
+    return { previewTokens: tokens.toNumber(), previewRemainder: remainder.toNumber(), remainingGold: safe.sub(tokens.mul(RATIO)).toNumber() };
   }
 
   settleAscension() {
     const total = this.addStrings(String(this.state.forgeEconomy.mintRemainder), String(this.state.hero.gold || 0));
-    const tokens = Math.floor(parseInt(total, 10) / RATIO);
-    const remainder = parseInt(total, 10) % RATIO;
-    if (tokens > 0) {
-      this.state.forgeEconomy.tokens = this.addStrings(this.state.forgeEconomy.tokens, String(tokens));
-      this.state.forgeEconomy.lifetimeMinted = this.addStrings(this.state.forgeEconomy.lifetimeMinted, String(tokens));
+    const tokens = new BigIntDecimal(total).div(RATIO);
+    const remainder = new BigIntDecimal(total).mod(RATIO);
+    if (!tokens.isZero()) {
+      this.state.forgeEconomy.tokens = this.addStrings(this.state.forgeEconomy.tokens, tokens.toString());
+      this.state.forgeEconomy.lifetimeMinted = this.addStrings(this.state.forgeEconomy.lifetimeMinted, tokens.toString());
     }
-    this.state.forgeEconomy.mintRemainder = remainder;
-    return { tokens, remainder };
+    this.state.forgeEconomy.mintRemainder = remainder.toNumber();
+    return { tokens: tokens.toNumber(), remainder: remainder.toNumber() };
   }
 
   addStrings(a, b) {

@@ -8,7 +8,48 @@
 </head>
 <body>
   <div id="game-root">
+    <div id="hud-bar">
+      <div id="hud-left">
+        <button id="class-btn">Class: <span id="class-name">None</span></button>
+        <button id="frontier-btn">Frontier</button>
+      </div>
+      <div id="hud-right">
+        <span id="stage-label">Stage 1</span>
+      </div>
+    </div>
     <canvas id="combat-canvas"></canvas>
+    <div id="class-panel" class="panel hidden">
+      <div class="panel-header">Select Class</div>
+      <div id="class-list"></div>
+    </div>
+    <div id="map-panel" class="panel hidden">
+      <div class="panel-header">World Map</div>
+      <div id="frontier-card" class="map-card">
+        <div class="map-title">Endless Frontier</div>
+        <div id="frontier-status">Locked — complete Campaign Stage 120</div>
+        <div id="frontier-info" class="hidden">
+          <div>Best Depth: <span id="frontier-best">0</span></div>
+          <div>Current: <span id="frontier-current">D1</span></div>
+          <div>Checkpoint: <span id="frontier-checkpoint">1</span></div>
+          <div>Policy: <span id="frontier-policy">push</span></div>
+          <div>Seed: <span id="frontier-seed">—</span></div>
+          <div class="map-actions">
+            <button id="frontier-start">Start</button>
+            <button id="frontier-resume">Resume</button>
+            <button id="frontier-leave">Leave</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="title-bar" class="title-bar">
+      <div id="title-logo">TASKFORGE</div>
+      <div id="class-cards" class="class-cards"></div>
+    </div>
+    <div id="offline-modal" class="panel hidden" style="top:50%;left:50%;transform:translate(-50%,-50%);min-width:280px;">
+      <div class="panel-header">Offline Progress</div>
+      <div id="offline-content"></div>
+      <button id="offline-close" style="margin-top:8px;">Claim</button>
+    </div>
   </div>
   <script type="module" src="main.js"></script>
 </body>

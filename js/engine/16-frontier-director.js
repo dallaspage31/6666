@@ -22,7 +22,7 @@ export class FrontierDirector {
   materializeStage(depth) {
     const seed = this.state.frontier.seed;
     const channels = ['template', 'modifier', 'biome', 'boss_aspect'];
-    const recipe = {};
+    let recipe = {};
     for (const ch of channels) {
       const r = new DeterministicRNG(seed + depth * 7 + ch.charCodeAt(0));
       if (ch === 'template') recipe.template = r.pick(this.templates);

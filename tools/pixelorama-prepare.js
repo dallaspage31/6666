@@ -275,6 +275,8 @@ async function main() {
   walk(path.join(ART_DIR, 'units'));
   walk(path.join(ART_DIR, 'vfx'));
   walk(path.join(ART_DIR, 'bosses'));
+  walk(path.join(ART_DIR, 'mossroad', 'foreground'));
+  walk(path.join(ART_DIR, 'mossroad', 'ambient'));
 
   console.log(`Prepare: processing ${files.length} source files...`);
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T03:18:58.818Z",
+  "generatedAt": "2026-07-29T03:45:47.599Z",
   "layerContract": [
     "body",
     "weapon",
@@ -42,6 +42,28 @@
       "file": "bosses/moss_guardian.png",
       "width": 256,
       "height": 256,
+      "pivotX": null,
+      "pivotY": null,
+      "hasRealAlpha": true,
+      "labels": [
+        "unknown"
+      ]
+    },
+    {
+      "file": "mossroad/foreground/rock_cluster_01.png",
+      "width": 192,
+      "height": 192,
+      "pivotX": null,
+      "pivotY": null,
+      "hasRealAlpha": true,
+      "labels": [
+        "unknown"
+      ]
+    },
+    {
+      "file": "mossroad/ambient/spore_mist.png",
+      "width": 192,
+      "height": 192,
       "pivotX": null,
       "pivotY": null,
       "hasRealAlpha": true,

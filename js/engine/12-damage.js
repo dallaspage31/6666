@@ -1,12 +1,15 @@
 import { EffectConsumers } from './11-ability-effects.js';
 
+import { BigIntDecimal } from './00-bigint.js';
+
 export class DamageSystem {
   static compute(attacker, defender, isCrit = false) {
-    let base = attacker.baseAttackDamage || 0;
-    if (isCrit) base *= attacker.critDamage || 1.5;
-    const armor = defender.armor || 0;
-    const mitigated = Math.max(1, base - armor);
-    return { base, mitigated, isCrit };
+    const base = new BigIntDecimal(attacker.baseAttackDamage || 0);
+    let final = base;
+    if (isCrit) final = final.mul(attacker.critDamage || 1.5);
+    const armor = new BigIntDecimal(defender.armor || 0);
+    const mitigated = final.sub(armor).max(new BigIntDecimal(1));
+    return { base: base.toNumber(), mitigated: mitigated.toNumber(), isCrit };
   }
 
   static apply(attacker, defender, skill) {
