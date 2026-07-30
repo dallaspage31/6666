@@ -1,0 +1,45 @@
+{
+  "name": "robheroes",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@solana/kit": "^7",
+    "@solana/react": "^7",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/vite": "^4",
+    "autoprefixer": "^10",
+    "next": "^16",
+    "otpauth": "^9",
+    "pg": "^8",
+    "phaser": "^4.2",
+    "postcss": "^8",
+    "qrcode": "^1",
+    "react": "^19",
+    "react-dom": "^19",
+    "sonner": "^1",
+    "swr": "^2",
+    "tailwindcss": "^4",
+    "viem": "^2",
+    "ws": "^8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9",
+    "@types/node": "^20",
+    "@types/pg": "^8",
+    "@types/qrcode": "^1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/three": "^0.176.0",
+    "@vitejs/plugin-react": "^6.0.4",
+    "eslint": "^9",
+    "globals": "^15",
+    "typescript": "^5",
+    "vite-tsconfig-paths": "^6.1.1"
+  }
+}
