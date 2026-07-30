@@ -1,6 +1,7 @@
 name = "robheroes-worker"
 main = "worker/index.ts"
 compatibility_date = "2026-07-30"
+node_compat = true
 
 [dev]
 port = 8787
