@@ -1,7 +1,19 @@
 import { DeterministicRNG } from './01-rng.js';
 import { GameState } from './02-state.js';
+import { getMutationKit } from '../data/mutation-kits.js';
 
 const POLICIES = ['push', 'farm', 'safePush', 'greedy'];
+
+const MODIFIER_STATS = {
+  frenzied: { damageScale: 1.4 },
+  armored: { armor: 10 },
+  volatile: { hpScale: 0.8, damageScale: 1.6 },
+  regenerating: { regen: 2 },
+  reinforcements: { countScale: 1.5 },
+  elemental_storm: { damageScale: 1.3, fx: '#8844aa' },
+  darkness: { damageScale: 0.8, armor: 5 },
+  treasure_bound: { goldScale: 3 },
+};
 
 export class FrontierDirector {
   constructor(state, rng) {
@@ -73,10 +85,12 @@ export class FrontierDirector {
 
   spawnWave(recipe, depth, waveIndex) {
     const count = 2 + Math.min(Math.floor(depth / 10), 12);
+    const countScale = recipe.modifier === 'reinforcements' ? 1.5 : 1;
     const enemies = [];
     const r = new DeterministicRNG(this.state.frontier.seed + depth * 13 + waveIndex);
-    for (let i = 0; i < count; i++) {
-      enemies.push({
+    const actualCount = Math.max(1, Math.floor(count * countScale));
+    for (let i = 0; i < actualCount; i++) {
+      const base = {
         id: `frontier_${depth}_${waveIndex}_${i}`,
         hp: Math.floor(20 * recipe.hpScale),
         maxHp: Math.floor(20 * recipe.hpScale),
@@ -84,13 +98,22 @@ export class FrontierDirector {
         armor: 0,
         attackInterval: 1200,
         lastAttack: 0,
-      });
+        modifier: recipe.modifier,
+        aspect: null,
+      };
+      const modStats = MODIFIER_STATS[recipe.modifier];
+      if (modStats) {
+        if (modStats.hpScale) { base.hp = Math.floor(base.hp * modStats.hpScale); base.maxHp = base.hp; }
+        if (modStats.damageScale) base.damage = Math.floor(base.damage * modStats.damageScale);
+        if (modStats.armor) base.armor = (base.armor || 0) + modStats.armor;
+      }
+      enemies.push(base);
     }
     return enemies;
   }
 
   spawnBoss(recipe, depth) {
-    return {
+    const boss = {
       id: `frontier_boss_${depth}`,
       hp: Math.floor(200 * recipe.hpScale),
       maxHp: Math.floor(200 * recipe.hpScale),
@@ -98,8 +121,16 @@ export class FrontierDirector {
       armor: 5,
       attackInterval: 2000,
       lastAttack: 0,
+      modifier: recipe.modifier,
       aspect: recipe.bossAspect,
     };
+    const modStats = MODIFIER_STATS[recipe.modifier];
+    if (modStats) {
+      if (modStats.hpScale) { boss.hp = Math.floor(boss.hp * modStats.hpScale); boss.maxHp = boss.hp; }
+      if (modStats.damageScale) boss.damage = Math.floor(boss.damage * modStats.damageScale);
+      if (modStats.armor) boss.armor += modStats.armor;
+    }
+    return boss;
   }
 
   completeWave() {

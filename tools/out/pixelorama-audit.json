@@ -9,48 +9,25 @@
       "assets/art/mossroad"
     ],
     "standardsFile": "tools/pixelorama-standards.json",
-    "totalFiles": 14
+    "totalFiles": 16
   },
   "summary": {
     "inspectedUnitVfxFiles": 9,
     "inspectedBossFiles": 3,
-    "inspectedOtherFiles": 2,
-    "nonTransparentCorner": 0,
-    "alphaBorderTouch": 0,
-    "fullCanvasAlphaBbox": 0,
-    "runtimeOversizedFrame": 1,
-    "fakeTransparencyVfx": 0,
+    "inspectedOtherFiles": 4,
+    "nonTransparentCorner": 5,
+    "alphaBorderTouch": 5,
+    "fullCanvasAlphaBbox": 5,
+    "runtimeOversizedFrame": 5,
+    "fakeTransparencyVfx": 5,
     "exactDuplicateGroups": 0,
     "exactDuplicateFiles": 0,
     "decodeFailures": 0,
-    "dimensionErrors": 2
+    "dimensionErrors": 0
   },
   "findings": {
     "decodeFailures": [],
-    "dimensionErrors": [
-      {
-        "file": "assets/art/bosses/iron_golem.png",
-        "expected": [
-          256,
-          256
-        ],
-        "actual": [
-          192,
-          192
-        ]
-      },
-      {
-        "file": "assets/art/bosses/shadow_wyrm.png",
-        "expected": [
-          256,
-          256
-        ],
-        "actual": [
-          192,
-          192
-        ]
-      }
-    ],
+    "dimensionErrors": [],
     "duplicateGroups": []
   }
 }

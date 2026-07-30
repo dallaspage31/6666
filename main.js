@@ -8,8 +8,13 @@ import { formatBigInt } from './js/engine/00-bigint.js';
 import { UPGRADE_TREE, getUpgradeCost } from './js/data/upgrade-tree.js';
 import { defaultRegistry } from './js/engine/10-ability-registry.js';
 import { EffectConsumers } from './js/engine/11-ability-effects.js';
+import { SessionPersistence } from './js/engine/05-session-persistence.js';
+import { InputManager } from './js/engine/04-input.js';
+import { TalentTree } from './js/engine/07-talent-tree.js';
+import { ShopSystem } from './js/engine/08-shop.js';
+import { LoadoutManager } from './js/engine/09-loadout.js';
 
-GAME = { engine: null, renderer: null, assets: null, forgeTokens: null, frontierDirector: null };
+GAME = { engine: null, renderer: null, assets: null, forgeTokens: null, frontierDirector: null, persistence: null, inputs: null, talentTree: null, shop: null, loadout: null };
 
 const CLASS_LIST = [
   { id: 'guardian', name: 'Guardian' },
@@ -44,21 +49,30 @@ async function boot() {
   });
 
   GAME.engine.on('render', (state) => {
+    renderParticles(GAME.renderer);
     GAME.renderer.render(state);
     updateHUD(state);
   });
 
-  const save = localStorage.getItem('TF_SAVE_v6');
-  if (save) {
+  GAME.persistence = new SessionPersistence();
+  const saveData = GAME.persistence.load();
+  if (saveData) {
     try {
-      const data = JSON.parse(save);
-      GAME.engine.init(data);
+      GAME.engine.init(saveData);
     } catch {
       GAME.engine.init();
     }
   } else {
     GAME.engine.init();
   }
+
+  GAME.inputs = new InputManager();
+  GAME.talentTree = new TalentTree();
+  GAME.talentTree.define('sharp_edges', { name: 'Sharp Edges', cost: 1, effect: { baseAttackDamage: 2 } });
+  GAME.talentTree.define('iron_skin', { name: 'Iron Skin', cost: 1, effect: { baseArmor: 1 } });
+  GAME.talentTree.define('blood_pact', { name: 'Blood Pact', cost: 2, requires: ['iron_skin'], effect: { lifeSteal: 0.05 } });
+  GAME.shop = new ShopSystem();
+  GAME.loadout = new LoadoutManager();
 
   GAME.engine.start();
   buildClassPanel();
@@ -68,16 +82,17 @@ async function boot() {
   buildSkillBar();
   buildSkillsPanel();
   buildManagePanel();
+  buildShopPanel();
+  buildTalentPanel();
 
-  const lastSave = localStorage.getItem('TF_SAVE_v6_ts');
+  const lastSave = GAME.persistence.load();
   if (lastSave) {
-    const offline = Math.floor((Date.now() - parseInt(lastSave, 10)) / 1000);
+    const offline = Math.floor((Date.now() - (parseInt(localStorage.getItem('TF_SAVE_v6_ts') || '0', 10))) / 1000);
     if (offline > 60) showOfflineModal(offline);
   }
 
   setInterval(() => {
-    const data = JSON.stringify(GAME.engine.state);
-    localStorage.setItem('TF_SAVE_v6', data);
+    GAME.persistence.save(GAME.engine.state);
     localStorage.setItem('TF_SAVE_v6_ts', String(Date.now()));
   }, 5000);
 }
@@ -137,6 +152,22 @@ function buildClassPanel() {
   if (skillsBtn) {
     skillsBtn.onclick = () => {
       document.getElementById('skills-panel').classList.toggle('hidden');
+    };
+  }
+
+  const shopBtn = document.getElementById('shop-btn');
+  if (shopBtn) {
+    shopBtn.onclick = () => {
+      document.getElementById('shop-panel').classList.toggle('hidden');
+      buildShopPanel();
+    };
+  }
+
+  const talentBtn = document.getElementById('talent-btn');
+  if (talentBtn) {
+    talentBtn.onclick = () => {
+      document.getElementById('talent-panel').classList.toggle('hidden');
+      buildTalentPanel();
     };
   }
 
@@ -237,22 +268,6 @@ function showOfflineModal(offlineSeconds) {
       GAME.engine.state.hero.gold = (GAME.engine.state.hero.gold || 0) + result.totalGold;
     }
   };
-}
-
-  const classBtn = document.getElementById('class-btn');
-  if (classBtn) {
-    classBtn.onclick = () => {
-      document.getElementById('class-panel').classList.toggle('hidden');
-    };
-  }
-
-  const frontierBtn = document.getElementById('frontier-btn');
-  if (frontierBtn) {
-    frontierBtn.onclick = () => {
-      document.getElementById('map-panel').classList.toggle('hidden');
-      updateMapPanel(GAME.engine.state);
-    };
-  }
 }
 
 function buildMapPanel() {
@@ -458,6 +473,59 @@ function buildManagePanel() {
     row.innerHTML = `<span>${slot.icon}</span><div><div>${slot.name}</div><div style="font-size:10px;color:#aaa;">${equipped || 'Empty'}</div></div>`;
     container.appendChild(row);
   }
+}
+
+function buildShopPanel() {
+  const list = document.getElementById('shop-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const rng = GAME.engine.rng;
+  GAME.shop.generateCatalog(rng, GAME.engine.state.progression.currentStageNumber, 6);
+  for (let i = 0; i < GAME.shop.catalog.length; i++) {
+    const item = GAME.shop.catalog[i];
+    const row = document.createElement('div');
+    row.className = 'upgrade-row';
+    row.innerHTML = `<span>${item.rarity === 'common' ? '⚪' : item.rarity === 'uncommon' ? '🟢' : item.rarity === 'rare' ? '🔵' : '🟣'}</span><div><div>${item.name}</div><div style="font-size:10px;color:#aaa;">${item.price} G</div></div>`;
+    const btn = document.createElement('button');
+    btn.textContent = 'Buy';
+    btn.onclick = () => {
+      const res = GAME.shop.buy(i, GAME.engine.state);
+      if (res.success) buildShopPanel();
+    };
+    row.appendChild(btn);
+    list.appendChild(row);
+  }
+}
+
+function buildTalentPanel() {
+  const list = document.getElementById('talent-list');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const [id, node] of GAME.talentTree.nodes) {
+    const row = document.createElement('div');
+    row.className = 'upgrade-row';
+    const canActivate = GAME.talentTree.canActivate(id);
+    row.innerHTML = `<span>${node.icon}</span><div><div>${node.name}</div><div style="font-size:10px;color:#aaa;">Cost ${node.cost}</div></div>`;
+    if (!node.activated) {
+      const btn = document.createElement('button');
+      btn.textContent = canActivate ? 'Buy' : 'Locked';
+      btn.disabled = !canActivate;
+      btn.onclick = () => {
+        if (GAME.talentTree.activate(id)) buildTalentPanel();
+      };
+      row.appendChild(btn);
+    } else {
+      const status = document.createElement('span');
+      status.textContent = 'Active';
+      status.style.color = '#22b14c';
+      row.appendChild(status);
+    }
+    list.appendChild(row);
+  }
+}
+
+function renderParticles(renderer) {
+  if (!renderer || !renderer.ctx) return;
 }
 
 if (document.readyState === 'loading') {

@@ -1,3 +1,5 @@
+import { getMutationKit } from './js/data/mutation-kits.js';
+
 export class GameRenderer {
   constructor(canvas, assets) {
     this.canvas = canvas;
@@ -9,7 +11,7 @@ export class GameRenderer {
     this.heroY = 0;
     this.hitStop = 0;
     this.particles = [];
-    this.fx = [];
+    this.fxs = [];
     this.lastFrame = 0;
     this.resize();
     if (typeof window !== 'undefined' && window.addEventListener) {
@@ -51,6 +53,65 @@ export class GameRenderer {
     }
   }
 
+  addParticle(x, y, color, count = 8) {
+    for (let i = 0; i < count; i++) {
+      this.particles.push({
+        x,
+        y,
+        vx: (Math.random() - 0.5) * 120,
+        vy: (Math.random() - 0.5) * 120 - 40,
+        life: 0.6 + Math.random() * 0.4,
+        maxLife: 0.6 + Math.random() * 0.4,
+        radius: 2 + Math.random() * 2,
+        color,
+      });
+    }
+  }
+
+  addWorldFx(x, y, color, count = 4) {
+    this.fxs.push({ x, y, color, count, life: 0.3, maxLife: 0.3 });
+  }
+
+  updateParticles(dt) {
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 180 * dt;
+      p.life -= dt;
+      if (p.life <= 0) this.particles.splice(i, 1);
+    }
+    for (let i = this.fxs.length - 1; i >= 0; i--) {
+      const f = this.fxs[i];
+      f.life -= dt;
+      if (f.life <= 0) this.fxs.splice(i, 1);
+    }
+  }
+
+  drawParticles(ctx) {
+    for (const p of this.particles) {
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  drawFxs(ctx) {
+    for (const f of this.fxs) {
+      const t = 1 - f.life / f.maxLife;
+      ctx.globalAlpha = Math.max(0, 1 - t);
+      ctx.strokeStyle = f.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.count * 6 * t, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   drawHero(ctx, state) {
     const x = this.width * 0.2;
     const y = this.heroY;
@@ -81,11 +142,14 @@ export class GameRenderer {
       this.drawSprite(ctx, entry, x, y, 0.8);
 
       if (enemy.modifier) {
-        const kit = GAME.assets?.get(`modifier_${enemy.modifier}`) || null;
+        const kit = getMutationKit(enemy.modifier);
         if (kit) {
           ctx.save();
           ctx.globalAlpha = 0.4;
-          ctx.drawImage(kit, x - 25, y - 40, 50, 20);
+          ctx.fillStyle = kit.palette.secondary;
+          ctx.beginPath();
+          ctx.arc(x, y - 30, 18, 0, Math.PI * 2);
+          ctx.fill();
           ctx.restore();
         }
       }
@@ -112,5 +176,28 @@ export class GameRenderer {
       ctx.textAlign = 'center';
       ctx.fillText(`Frontier ${stageLabel} · ${state.frontier.biome} · ${state.frontier.template}`, w / 2, h - 10);
     }
+  }
+
+  render(state) {
+    const ctx = this.ctx;
+    const w = this.width;
+    const h = this.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#0f0f13';
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = '#1a1a2e';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, this.laneY);
+    ctx.lineTo(w, this.laneY);
+    ctx.stroke();
+
+    this.drawHero(ctx, state);
+    this.drawEnemies(ctx, state);
+    this.updateParticles(0.016);
+    this.drawParticles(ctx);
+    this.drawFxs(ctx);
+    this.drawHUD(ctx, state, w, h);
   }
 }

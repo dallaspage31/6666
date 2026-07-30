@@ -3,6 +3,7 @@ import { GameState } from './02-state.js';
 import { DamageSystem } from './12-damage.js';
 import { applyUpgradeEffect, getUpgradeCost } from '../data/upgrade-tree.js';
 import { OfflineSolver } from './07-offline-solver.js';
+import { ProgressionSystem } from './13-progression.js';
 
 export class Engine {
   constructor() {
@@ -102,7 +103,10 @@ export class Engine {
       const critColor = result.isCrit ? '#ffcc00' : '#22b14c';
       GAME.renderer?.addWorldFx?.(GAME.renderer.width * 0.5, GAME.renderer.laneY, critColor, result.isCrit ? 8 : 3);
       if (enemy.hp <= 0) {
-        this.emit('itemDrop', enemy);
+        const gold = Math.floor(enemy.maxHp * (enemy.goldScale || 1) * 0.5);
+        this.state.hero.gold = (this.state.hero.gold || 0) + gold;
+        this.state.hero.xp = (this.state.hero.xp || 0) + Math.floor(enemy.maxHp * 0.3);
+        ProgressionSystem.awardXP(this.state, Math.floor(enemy.maxHp * 0.3));
       }
     }
   }
@@ -166,6 +170,10 @@ export class Engine {
       }
     }
     return summary;
+  }
+
+  getFrontierStageData(depth) {
+    return this.frontierDirector?.getFrontierStageData?.(depth) || null;
   }
 
   purchaseUpgrade(id) {
