@@ -16,12 +16,12 @@ export interface Item {
   spd: number
   icon: string
   description: string
+  setId: string | null
 }
 
 export interface EquipmentItem extends Item {
   type: 'equipment'
   slot: ItemSlot
-  setId: string | null
 }
 
 export interface ConsumableItem extends Item {
