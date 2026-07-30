@@ -1,0 +1,22 @@
+name = "robheroes-worker"
+main = "worker/index.ts"
+compatibility_date = "2026-07-30"
+
+[dev]
+port = 8787
+local_protocol = "http"
+
+[env.production]
+name = "robheroes-worker-production"
+
+[env.staging]
+name = "robheroes-worker-staging"
+
+[vars]
+DATABASE_URL = "postgresql://user:password@localhost:5432/robheroes"
+NEXT_PUBLIC_WS_URL = "ws://localhost:3001"
+NEXT_PUBLIC_APP_URL = "http://localhost:3000"
+PLAYER_SESSION_SECRET = "your_player_session_secret_here"
+ADMIN_JWT_SECRET = "your_admin_jwt_secret_here"
+TOTP_ISSUER = "ROBHEROES"
+QR_CODE_SECRET = "your_qr_code_secret_here"
