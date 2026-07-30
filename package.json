@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "ci": "next build && next lint && prettier --check .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@solana/kit": "^7",
@@ -39,6 +42,8 @@
     "@vitejs/plugin-react": "^6.0.4",
     "eslint": "^9",
     "globals": "^15",
+    "prettier": "^3",
+    "prettier-plugin-tailwindcss": "^3",
     "typescript": "^5",
     "vite-tsconfig-paths": "^6.1.1"
   }
