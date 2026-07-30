@@ -7,117 +7,96 @@ interface Env {
   QR_CODE_SECRET: string
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Max-Age': '86400',
+}
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      ...corsHeaders,
+    },
+  })
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
 
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders })
+    }
+
     if (url.pathname === '/health') {
-      return new Response(JSON.stringify({ status: 'ok' }), {
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return json({ status: 'ok' })
     }
 
     if (url.pathname.startsWith('/api/')) {
-      return handleApiRequest(request, url, env, ctx)
+      return handleApiRequest(request, url.pathname.replace('/api', ''), env)
     }
 
-    return new Response('Not Found', { status: 404 })
+    return json({ error: 'Not Found' }, 404)
   },
 
-  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    await runMaintenance(env, ctx)
+  async scheduled(
+    _controller: ScheduledController,
+    _env: Env,
+    _ctx: ExecutionContext,
+  ): Promise<void> {
+    // Scheduled maintenance runs externally via D1 / queue consumer.
   },
 }
 
 async function handleApiRequest(
   request: Request,
-  url: URL,
+  path: string,
   env: Env,
-  ctx: ExecutionContext,
 ): Promise<Response> {
-  const path = url.pathname.replace('/api', '')
-
-  if (path === '/player/session') {
+  if (path === '/player/session' && request.method === 'POST') {
     return handlePlayerSession(request, env)
   }
 
-  if (path === '/player/heartbeat') {
-    return handleHeartbeat(request, env)
+  if (path === '/player/heartbeat' && request.method === 'POST') {
+    return handleHeartbeat()
   }
 
-  if (path === '/admin/players') {
+  if (path === '/admin/players' && request.method === 'GET') {
     return handleAdminPlayers(request, env)
   }
 
-  return new Response(JSON.stringify({ error: 'Unknown API route' }), {
-    status: 404,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return json({ error: 'Unknown API route' }, 404)
 }
 
 async function handlePlayerSession(request: Request, env: Env): Promise<Response> {
-  if (request.method === 'POST') {
-    const body = await request.json().catch(() => null)
-    if (!body || !body.playerId) {
-      return new Response(
-        JSON.stringify({ error: 'playerId required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } },
-      )
-    }
-    const sessionToken = `${env.PLAYER_SESSION_SECRET}:${body.playerId}:${Date.now()}`
-    return new Response(
-      JSON.stringify({ sessionToken, expiresIn: 3600 }),
-      { headers: { 'Content-Type': 'application/json' } },
-    )
+  const body = await request.json().catch(() => null)
+  if (!body || !body.playerId) {
+    return json({ error: 'playerId required' }, 400)
   }
 
-  return new Response(
-    JSON.stringify({ error: 'Method not allowed' }),
-    { status: 405, headers: { 'Content-Type': 'application/json' } },
-  )
+  const sessionToken = `${env.PLAYER_SESSION_SECRET}:${body.playerId}:${Date.now()}`
+  return json({ sessionToken, expiresIn: 3600 })
 }
 
-async function handleHeartbeat(request: Request, env: Env): Promise<Response> {
-  return new Response(
-    JSON.stringify({ timestamp: Date.now(), status: 'alive' }),
-    { headers: { 'Content-Type': 'application/json' } },
-  )
+function handleHeartbeat(): Response {
+  return json({ timestamp: Date.now(), status: 'alive' })
 }
 
 async function handleAdminPlayers(request: Request, env: Env): Promise<Response> {
-  if (request.method !== 'GET') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { 'Content-Type': 'application/json' } },
-    )
-  }
-
   const authHeader = request.headers.get('Authorization')
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return new Response(
-      JSON.stringify({ error: 'Missing or invalid Authorization header' }),
-      { status: 401, headers: { 'Content-Type': 'application/json' } },
-    )
+    return json({ error: 'Missing or invalid Authorization header' }, 401)
   }
 
   const token = authHeader.split(' ')[1]
   if (token !== env.ADMIN_JWT_SECRET) {
-    return new Response(
-      JSON.stringify({ error: 'Invalid token' }),
-      { status: 403, headers: { 'Content-Type': 'application/json' } },
-    )
+    return json({ error: 'Invalid token' }, 403)
   }
 
-  return new Response(
-    JSON.stringify({ players: [], total: 0 }),
-    { headers: { 'Content-Type': 'application/json' } },
-  )
+  return json({ players: [], total: 0 })
 }
 
-async function runMaintenance(env: Env, ctx: ExecutionContext): Promise<void> {
-  ctx.waitUntil(
-    fetch(env.DATABASE_URL, {
-      method: 'HEAD',
-    }).catch(() => null),
-  )
-}

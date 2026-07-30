@@ -20,4 +20,6 @@ coverage
 .idea
 *.swp
 *.swo
-*~
+    *~
+
+.dev.vars
