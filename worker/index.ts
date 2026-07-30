@@ -78,8 +78,48 @@ async function handlePlayerSession(request: Request, env: Env): Promise<Response
     return json({ error: 'playerId required' }, 400)
   }
 
-  const sessionToken = `${env.PLAYER_SESSION_SECRET}:${body.playerId}:${Date.now()}`
-  return json({ sessionToken, expiresIn: 3600 })
+  const payload = `${body.playerId}:${Date.now()}`
+  const signature = new Uint8Array(
+    await crypto.subtle.sign(
+      'HMAC',
+      await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(env.PLAYER_SESSION_SECRET),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign'],
+      ),
+      new TextEncoder().encode(payload),
+    ),
+  )
+  const token = `${payload}:${Buffer.from(signature).toString('base64url')}`
+  return json({ sessionToken: token, expiresIn: 3600 })
+}
+
+async function parseSessionToken(token: string, env: Env): Promise<string | null> {
+  const parts = token.split(':')
+  if (parts.length !== 3) return null
+
+  const [playerId, timestamp, signature] = parts
+  const payload = `${playerId}:${timestamp}`
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(env.PLAYER_SESSION_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['verify'],
+  )
+
+  const valid = await crypto.subtle.verify(
+    'HMAC',
+    key,
+    Uint8Array.from(atob(signature.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)),
+    new TextEncoder().encode(payload),
+  )
+
+  if (!valid) return null
+  return playerId
 }
 
 function handleHeartbeat(): Response {

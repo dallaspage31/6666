@@ -117,7 +117,7 @@ export function MeltPanel() {
                 </div>
               </div>
               <span className="text-xs text-gray-500">
-                { RARITY_MULTIPLIERS[item.rarity]}x
+                {RARITY_MULTIPLIERS[item.rarity]}x
               </span>
             </label>
           )

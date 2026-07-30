@@ -4,14 +4,14 @@ import { useConnection, useWallet } from '@solana/react'
 import { useState } from 'react'
 
 export function WalletButton() {
-  const { publicKey, connected, connecting, disconnect } = useWallet()
+  const { publicKey, connected, connecting, disconnect, connect } = useWallet()
   const { connection } = useConnection()
   const [error, setError] = useState<string | null>(null)
 
   const handleConnect = async () => {
     setError(null)
     try {
-      await connection.getSlot()
+      await connect()
     } catch {
       setError('Failed to connect to wallet')
     }
