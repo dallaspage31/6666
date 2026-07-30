@@ -54,15 +54,16 @@ export class GameRenderer {
   drawHero(ctx, state) {
     const x = this.width * 0.2;
     const y = this.heroY;
-    const key = `hero_${state.hero.classId || 'unknown'}`;
-    const entry = this.sprite(key, 18, state.hero.classId === 'guardian' ? '#ffcc00' : '#00ccff');
+    const classId = state.hero.classId || 'unknown';
+    const key = `class_${classId}`;
+    const entry = this.sprite(key, 18, classId === 'guardian' ? '#ffcc00' : '#00ccff');
     ctx.save();
     ctx.globalAlpha = this.hitStop > 0 ? 0.8 : 1.0;
     this.drawSprite(ctx, entry, x, y, 0.9);
-    ctx.strokeStyle = state.hero.classId === 'guardian' ? '#ffcc00' : '#00ccff';
+    ctx.strokeStyle = classId === 'guardian' ? '#ffcc00' : '#00ccff';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y, 24, 0, Math.PI * 2);
+    ctx.arc(x, y, 26, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
     if (this.hitStop > 0) this.hitStop -= 16;
@@ -79,10 +80,20 @@ export class GameRenderer {
       const entry = this.sprite(key, 14, '#b7410e');
       this.drawSprite(ctx, entry, x, y, 0.8);
 
+      if (enemy.modifier) {
+        const kit = GAME.assets?.get(`modifier_${enemy.modifier}`) || null;
+        if (kit) {
+          ctx.save();
+          ctx.globalAlpha = 0.4;
+          ctx.drawImage(kit, x - 25, y - 40, 50, 20);
+          ctx.restore();
+        }
+      }
+
       ctx.fillStyle = '#fff';
       ctx.font = '10px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(Math.max(0, Math.floor(enemy.hp)), x, y - 20);
+      ctx.fillText(Math.max(0, Math.floor(enemy.hp)), x, y - 24);
     });
   }
 

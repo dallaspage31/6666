@@ -1,6 +1,8 @@
 import { DeterministicRNG } from './01-rng.js';
 import { GameState } from './02-state.js';
 import { DamageSystem } from './12-damage.js';
+import { applyUpgradeEffect, getUpgradeCost } from '../data/upgrade-tree.js';
+import { OfflineSolver } from './07-offline-solver.js';
 
 export class Engine {
   constructor() {
@@ -164,5 +166,18 @@ export class Engine {
       }
     }
     return summary;
+  }
+
+  purchaseUpgrade(id) {
+    const currentRank = this.state.hero.upgrades?.[id] || 0;
+    const cost = getUpgradeCost(id, currentRank);
+    if (cost === Infinity) return { success: false, reason: 'MAX_RANK' };
+    if ((this.state.hero.gold || 0) < cost) return { success: false, reason: 'INSUFFICIENT_GOLD' };
+
+    this.state.hero.gold -= cost;
+    this.state.hero.upgrades = this.state.hero.upgrades || {};
+    this.state.hero.upgrades[id] = currentRank + 1;
+    applyUpgradeEffect(this.state, id, this.state.hero.upgrades[id]);
+    return { success: true, newRank: this.state.hero.upgrades[id], cost };
   }
 }

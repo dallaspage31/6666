@@ -12,6 +12,9 @@
       <div id="hud-left">
         <button id="class-btn">Class: <span id="class-name">None</span></button>
         <button id="frontier-btn">Frontier</button>
+        <button id="upgrade-btn">Upgrades</button>
+        <button id="skills-btn">Skills</button>
+        <button id="manage-btn">Manage</button>
       </div>
       <div id="hud-right">
         <span id="stage-label">Stage 1</span>
@@ -41,9 +44,22 @@
         </div>
       </div>
     </div>
+    <div id="upgrade-panel" class="panel hidden">
+      <div class="panel-header">Upgrades</div>
+      <div id="upgrade-list"></div>
+    </div>
+    <div id="skills-panel" class="panel hidden">
+      <div class="panel-header">Skills</div>
+      <div id="skills-list"></div>
+    </div>
+    <div id="manage-panel" class="panel hidden">
+      <div class="panel-header">Manage</div>
+      <div id="equipment-slots"></div>
+    </div>
     <div id="title-bar" class="title-bar">
       <div id="title-logo">TASKFORGE</div>
       <div id="class-cards" class="class-cards"></div>
+      <div id="skill-bar" class="skill-bar"></div>
     </div>
     <div id="offline-modal" class="panel hidden" style="top:50%;left:50%;transform:translate(-50%,-50%);min-width:280px;">
       <div class="panel-header">Offline Progress</div>

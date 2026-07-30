@@ -3,6 +3,11 @@ import { GameRenderer } from './game-renderer.js';
 import { GameAssets } from './game-assets.js';
 import { ForgeTokens } from './js/engine/15-forge-tokens.js';
 import { FrontierDirector } from './js/engine/16-frontier-director.js';
+import { OfflineSolver } from './js/engine/07-offline-solver.js';
+import { formatBigInt } from './js/engine/00-bigint.js';
+import { UPGRADE_TREE, getUpgradeCost } from './js/data/upgrade-tree.js';
+import { defaultRegistry } from './js/engine/10-ability-registry.js';
+import { EffectConsumers } from './js/engine/11-ability-effects.js';
 
 GAME = { engine: null, renderer: null, assets: null, forgeTokens: null, frontierDirector: null };
 
@@ -23,8 +28,17 @@ async function boot() {
 
   GAME.assets.registerBatch({
     class_guardian: 'assets/art/units/wolf_idle_01.png',
+    class_ranger: 'assets/art/units/ranger_idle_01.png',
+    class_mage: 'assets/art/units/mage_idle_01.png',
+    class_rogue: 'assets/art/units/rogue_idle_01.png',
     boss_fury: 'assets/art/bosses/moss_guardian.png',
+    boss_fortress: 'assets/art/bosses/iron_golem.png',
+    boss_void: 'assets/art/bosses/shadow_wyrm.png',
     vfx_fire: 'assets/art/vfx/fire_blast.png',
+    vfx_frost: 'assets/art/vfx/frost_nova.png',
+    vfx_void: 'assets/art/vfx/void_bolt.png',
+    vfx_holy: 'assets/art/vfx/holy_light.png',
+    vfx_crit: 'assets/art/vfx/crit_spark.png',
     fg_rock: 'assets/art/mossroad/foreground/rock_cluster_01.png',
     ambient_spore: 'assets/art/mossroad/ambient/spore_mist.png',
   });
@@ -50,6 +64,10 @@ async function boot() {
   buildClassPanel();
   buildMapPanel();
   buildTitleBar();
+  buildUpgradePanel();
+  buildSkillBar();
+  buildSkillsPanel();
+  buildManagePanel();
 
   const lastSave = localStorage.getItem('TF_SAVE_v6_ts');
   if (lastSave) {
@@ -106,6 +124,29 @@ function buildClassPanel() {
       updateMapPanel(GAME.engine.state);
     };
   }
+
+  const upgradeBtn = document.getElementById('upgrade-btn');
+  if (upgradeBtn) {
+    upgradeBtn.onclick = () => {
+      document.getElementById('upgrade-panel').classList.toggle('hidden');
+      refreshUpgradePanel();
+    };
+  }
+
+  const skillsBtn = document.getElementById('skills-btn');
+  if (skillsBtn) {
+    skillsBtn.onclick = () => {
+      document.getElementById('skills-panel').classList.toggle('hidden');
+    };
+  }
+
+  const manageBtn = document.getElementById('manage-btn');
+  if (manageBtn) {
+    manageBtn.onclick = () => {
+      document.getElementById('manage-panel').classList.toggle('hidden');
+      buildManagePanel();
+    };
+  }
 }
 
 function buildTitleBar() {
@@ -126,20 +167,76 @@ function buildTitleBar() {
   }
 }
 
+function buildSkillBar() {
+  const bar = document.getElementById('skill-bar');
+  if (!bar) return;
+  bar.innerHTML = '';
+
+  const abilities = [
+    { id: 'basic_attack', key: '1', icon: '⚔️' },
+    { id: 'heavy_slash', key: '2', icon: '💥' },
+    { id: 'minor_heal', key: '3', icon: '💚' },
+    { id: 'power_strike', key: '4', icon: '⚡' },
+    { id: 'fireball', key: '5', icon: '🔥' },
+  ];
+
+  for (const ab of abilities) {
+    const slot = document.createElement('div');
+    slot.className = 'skill-slot';
+    slot.dataset.abilityId = ab.id;
+    slot.innerHTML = `<span class="skill-key">${ab.key}</span><span class="skill-icon">${ab.icon}</span><div class="cd-overlay" id="cd-${ab.id}"></div>`;
+    slot.onclick = () => activateAbility(ab.id);
+    bar.appendChild(slot);
+  }
+}
+
+function activateAbility(abilityId) {
+  const registry = defaultRegistry;
+  const targets = [];
+  const stage = GAME.engine.state.getStageData();
+  if (stage?.waves) {
+    for (const w of stage.waves) {
+      for (const e of w.enemies) {
+        if (e.hp > 0) targets.push(e);
+      }
+    }
+  }
+  if (targets.length === 0) return;
+
+  const results = registry.apply(abilityId, GAME.engine.state.hero, targets, GAME.engine.state);
+  for (const r of results) {
+    if (r.targetId && r.result && typeof r.result === 'object' && r.result.hp !== undefined) {
+      const enemy = targets.find(t => t.id === r.targetId);
+      if (enemy) enemy.hp = r.result.hp;
+    }
+  }
+  GAME.renderer?.addWorldFx?.(GAME.renderer.width * 0.5, GAME.renderer.laneY, '#ffcc00', 8);
+}
+
 function showOfflineModal(offlineSeconds) {
   const modal = document.getElementById('offline-modal');
   const content = document.getElementById('offline-content');
   if (!modal || !content) return;
-  const hours = Math.floor(offlineSeconds / 3600);
-  const minutes = Math.floor((offlineSeconds % 3600) / 60);
+
+  const solver = new OfflineSolver(GAME.engine.state);
+  const result = solver.solve(offlineSeconds);
+  if (!result) return;
+
   content.innerHTML = `
-    <div>Offline for: ${hours}h ${minutes}m</div>
-    <div>Frontier depth progressed</div>
-    <div>Gold earned: +${Math.floor(offlineSeconds * 1.5)}</div>
-    <div>Items found: ${Math.floor(offlineSeconds / 10)}</div>
+    <div>Offline for: ${OfflineSolver.format(result.offlineSeconds)}</div>
+    <div>Depth advanced: +${result.depthAdvanced}</div>
+    <div>Gold earned: +${formatBigInt(result.totalGold)}</div>
+    <div>Items found: ${result.itemsFound}</div>
+    <div>Meaningful: ${result.meaningfulItems}</div>
+    <div>Salvaged: ${result.lowRaritySalvaged}</div>
   `;
   modal.classList.remove('hidden');
-  document.getElementById('offline-close').onclick = () => modal.classList.add('hidden');
+  document.getElementById('offline-close').onclick = () => {
+    modal.classList.add('hidden');
+    if (result.totalGold > 0) {
+      GAME.engine.state.hero.gold = (GAME.engine.state.hero.gold || 0) + result.totalGold;
+    }
+  };
 }
 
   const classBtn = document.getElementById('class-btn');
@@ -232,6 +329,134 @@ function updateMapPanel(state) {
     if (checkpointEl) checkpointEl.textContent = '1';
     if (policyEl) policyEl.textContent = 'push';
     if (seedEl) seedEl.textContent = '—';
+  }
+}
+
+function buildUpgradePanel() {
+  const list = document.getElementById('upgrade-list');
+  if (!list) return;
+  list.innerHTML = '';
+  list.innerHTML = '';
+
+  for (const [id, defn] of Object.entries(UPGRADE_TREE)) {
+    const row = document.createElement('div');
+    row.className = 'upgrade-row';
+
+    const icon = document.createElement('span');
+    icon.className = 'upgrade-icon';
+    icon.textContent = defn.icon;
+
+    const info = document.createElement('div');
+    info.className = 'upgrade-info';
+
+    const name = document.createElement('div');
+    name.className = 'upgrade-name';
+    name.textContent = defn.name;
+
+    const rank = document.createElement('div');
+    rank.className = 'upgrade-rank';
+    rank.id = `upgrade-rank-${id}`;
+    rank.textContent = `Rank 0/${defn.maxRank}`;
+
+    info.appendChild(name);
+    info.appendChild(rank);
+
+    const btn = document.createElement('button');
+    btn.className = 'upgrade-btn';
+    btn.id = `upgrade-btn-${id}`;
+    btn.textContent = `${defn.costBase} G`;
+    btn.onclick = () => purchaseUpgrade(id);
+
+    row.appendChild(icon);
+    row.appendChild(info);
+    row.appendChild(btn);
+    list.appendChild(row);
+  }
+
+  const upgradeBtn = document.getElementById('upgrade-btn');
+  if (upgradeBtn) {
+    upgradeBtn.onclick = () => {
+      document.getElementById('upgrade-panel').classList.toggle('hidden');
+      refreshUpgradePanel();
+    };
+  }
+}
+
+function purchaseUpgrade(id) {
+  const result = GAME.engine.purchaseUpgrade(id);
+  if (result.success) {
+    refreshUpgradePanel();
+  } else {
+    const btn = document.getElementById(`upgrade-btn-${id}`);
+    if (btn) {
+      btn.textContent = result.reason === 'MAX_RANK' ? 'MAX' : '???';
+      btn.disabled = true;
+    }
+  }
+}
+
+function refreshUpgradePanel() {
+  for (const [id, defn] of Object.entries(UPGRADE_TREE)) {
+    const rankEl = document.getElementById(`upgrade-rank-${id}`);
+    const btnEl = document.getElementById(`upgrade-btn-${id}`);
+    if (!rankEl || !btnEl) continue;
+
+    const currentRank = GAME.engine.state.hero.upgrades?.[id] || 0;
+    rankEl.textContent = `Rank ${currentRank}/${defn.maxRank}`;
+
+    if (currentRank >= defn.maxRank) {
+      btnEl.textContent = 'MAX';
+      btnEl.disabled = true;
+    } else {
+      const cost = getUpgradeCost(id, currentRank);
+      const affordable = (GAME.engine.state.hero.gold || 0) >= cost;
+      btnEl.textContent = `${formatBigInt(cost)} G`;
+      btnEl.disabled = !affordable;
+    }
+  }
+}
+
+function buildSkillsPanel() {
+  const list = document.getElementById('skills-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const abilities = [
+    { id: 'basic_attack', name: 'Basic Attack', desc: 'Deal 10 damage.', icon: '⚔️' },
+    { id: 'heavy_slash', name: 'Heavy Slash', desc: 'Deal 25 damage.', icon: '💥' },
+    { id: 'minor_heal', name: 'Minor Heal', desc: 'Restore 15 HP.', icon: '💚' },
+    { id: 'power_strike', name: 'Power Strike', desc: 'Deal 20 damage and buff attack +5 for 3s.', icon: '⚡' },
+    { id: 'fireball', name: 'Fireball', desc: 'Launch 3 projectiles.', icon: '🔥' },
+    { id: 'summon_skeleton', name: 'Summon Skeleton', desc: 'Summon a skeleton minion.', icon: '💀' },
+  ];
+
+  for (const ab of abilities) {
+    const row = document.createElement('div');
+    row.className = 'upgrade-row';
+    row.innerHTML = `<span style="font-size:16px;">${ab.icon}</span><div><div>${ab.name}</div><div style="font-size:10px;color:#aaa;">${ab.desc}</div></div>`;
+    list.appendChild(row);
+  }
+}
+
+function buildManagePanel() {
+  const container = document.getElementById('equipment-slots');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const slots = [
+    { id: 'weapon', name: 'Weapon', icon: '🗡️' },
+    { id: 'armor', name: 'Armor', icon: '🛡️' },
+    { id: 'motif', name: 'Motif', icon: '✨' },
+    { id: 'gem', name: 'Gem', icon: '💎' },
+    { id: 'aura', name: 'Aura', icon: '🌊' },
+  ];
+
+  for (const slot of slots) {
+    const equipped = GAME.engine.state.equipment?.[slot.id];
+    const row = document.createElement('div');
+    row.className = 'upgrade-row';
+    row.innerHTML = `<span>${slot.icon}</span><div><div>${slot.name}</div><div style="font-size:10px;color:#aaa;">${equipped || 'Empty'}</div></div>`;
+    container.appendChild(row);
   }
 }
 
