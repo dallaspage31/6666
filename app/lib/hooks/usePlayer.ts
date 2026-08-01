@@ -32,13 +32,13 @@ async function fetchPlayerSession(): Promise<PlayerData> {
 export function usePlayer(): PlayerState {
   const { data, error, isLoading, mutate } = useSWR<PlayerData>(
     '/api/player/session',
-    fetchPlayerSession
+    fetchPlayerSession,
   )
 
   return {
     player: data ?? null,
     loading: isLoading,
     error: error ?? null,
-    refetch: () => mutate(),
+    refetch: () => mutate() as Promise<void>,
   }
 }

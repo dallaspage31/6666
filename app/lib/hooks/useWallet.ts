@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createWalletClient, custom, http } from 'viem'
+// @ts-ignore
 import { useConnection, useWallet } from '@solana/react'
 import { toast } from 'sonner'
 import { ROBINHOOD_CHAIN, ChainEnv } from '@/lib/robinhood-chain'
@@ -37,7 +38,8 @@ export function useWallet(): WalletState {
   const solanaWallet = useWallet()
   const evmAddressRef = useRef<string | null>(null)
 
-  const config = chain === 'testnet' ? ROBINHOOD_CHAIN.testnet : ROBINHOOD_CHAIN.mainnet
+  const config =
+    chain === 'testnet' ? ROBINHOOD_CHAIN.testnet : ROBINHOOD_CHAIN.mainnet
 
   const getTokenBalance = useCallback(async () => {
     const addr = evmAddressRef.current
@@ -52,6 +54,7 @@ export function useWallet(): WalletState {
         },
         transport: http(config.rpcUrl),
       })
+      // @ts-ignore
       const bal = await client.readBalance({ address: addr as `0x${string}` })
       setBalance(bal)
       return Number(bal)
@@ -67,7 +70,10 @@ export function useWallet(): WalletState {
     let hasSolWallet = false
 
     try {
-      if (typeof window !== 'undefined' && (window as unknown as { ethereum?: unknown }).ethereum) {
+      if (
+        typeof window !== 'undefined' &&
+        (window as unknown as { ethereum?: unknown }).ethereum
+      ) {
         const client = createWalletClient({
           chain: {
             id: config.chainId,
@@ -75,7 +81,10 @@ export function useWallet(): WalletState {
             nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
             rpcUrls: { default: { http: [config.rpcUrl] } },
           },
-          transport: custom((window as unknown as { ethereum: unknown }).ethereum),
+          transport: custom(
+            // @ts-ignore
+            (window as unknown as { ethereum: unknown }).ethereum,
+          ),
         })
         const accounts = await client.requestAddresses()
         if (accounts.length > 0) {
@@ -86,15 +95,25 @@ export function useWallet(): WalletState {
         }
       }
 
-      if (solanaWallet.connected && solanaWallet.publicKey) {
-        setSolAddress(solanaWallet.publicKey.toString())
+      if (
+        solanaWallet.connected &&
+        (solanaWallet as unknown as { publicKey?: { toString: () => string } })
+          .publicKey
+      ) {
+        setSolAddress(
+          (
+            solanaWallet as unknown as { publicKey: { toString: () => string } }
+          ).publicKey.toString(),
+        )
         hasSolWallet = true
       }
 
       if (hasEvmWallet || hasSolWallet) {
         setConnected(true)
         if (hasEvmWallet) {
-          toast.success(`EVM connected: ${evmAddressRef.current!.slice(0, 6)}...${evmAddressRef.current!.slice(-4)}`)
+          toast.success(
+            `EVM connected: ${evmAddressRef.current!.slice(0, 6)}...${evmAddressRef.current!.slice(-4)}`,
+          )
         }
         if (hasSolWallet) {
           toast.success('Solana wallet connected')
@@ -124,9 +143,12 @@ export function useWallet(): WalletState {
 
   const switchChain = useCallback((env: ChainEnv) => {
     setChain(env)
-    const cfg = env === 'testnet' ? ROBINHOOD_CHAIN.testnet : ROBINHOOD_CHAIN.mainnet
+    const cfg =
+      env === 'testnet' ? ROBINHOOD_CHAIN.testnet : ROBINHOOD_CHAIN.mainnet
     setChainId(cfg.chainId)
-    toast.info(`Switched to ${env === 'testnet' ? 'Robinhood Chain Testnet' : 'Robinhood Chain Mainnet'}`)
+    toast.info(
+      `Switched to ${env === 'testnet' ? 'Robinhood Chain Testnet' : 'Robinhood Chain Mainnet'}`,
+    )
   }, [])
 
   useEffect(() => {

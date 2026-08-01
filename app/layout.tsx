@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { GameProvider } from '@/lib/hooks/useGame'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -13,7 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <GameProvider>
+          {children}
+        </GameProvider>
+      </body>
     </html>
   )
 }

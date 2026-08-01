@@ -4,6 +4,10 @@ import path from 'path'
 
 const DATABASE_URL = process.env.DATABASE_URL
 
+const DB_PATH =
+  process.env.DB_PATH ||
+  path.join(process.cwd(), 'data', 'robheroes-local.json')
+
 export interface Player {
   id: string
   wallet_address: string
@@ -192,7 +196,10 @@ class Database {
 
   private async atomicWrite(filePath: string, data: string): Promise<void> {
     const dir = path.dirname(filePath)
-    const tmp = path.join(dir, `.tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    const tmp = path.join(
+      dir,
+      `.tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    )
     await fs.writeFile(tmp, data, 'utf-8')
     await fs.rename(tmp, filePath)
   }
@@ -227,7 +234,10 @@ class Database {
     }
     const client = await this.getClient()
     try {
-      const result: QueryResult<Record<string, unknown>> = await client.query(text, params)
+      const result: QueryResult<Record<string, unknown>> = await client.query(
+        text,
+        params,
+      )
       return result.rows.map((row) => this.mapRow<T>(row))
     } finally {
       client.release()
@@ -242,12 +252,15 @@ class Database {
       if (lower.includes('from admins')) return data.admins as T[]
       if (lower.includes('from heroes')) return data.heroes as T[]
       if (lower.includes('from items')) return data.items as T[]
-      if (lower.includes('from player_inventory')) return data.player_inventory as T[]
+      if (lower.includes('from player_inventory'))
+        return data.player_inventory as T[]
       if (lower.includes('from pets')) return data.pets as T[]
       if (lower.includes('from runes')) return data.runes as T[]
-      if (lower.includes('from crafting_recipes')) return data.crafting_recipes as T[]
+      if (lower.includes('from crafting_recipes'))
+        return data.crafting_recipes as T[]
       if (lower.includes('from waves')) return data.waves as T[]
-      if (lower.includes('from combat_sessions')) return data.combat_sessions as T[]
+      if (lower.includes('from combat_sessions'))
+        return data.combat_sessions as T[]
     }
     return []
   }
@@ -257,12 +270,18 @@ class Database {
   }
 
   async playerByWallet(wallet: string): Promise<Player | null> {
-    const rows = await this.query<Player>('SELECT * FROM players WHERE wallet_address = $1', [wallet])
+    const rows = await this.query<Player>(
+      'SELECT * FROM players WHERE wallet_address = $1',
+      [wallet],
+    )
     return rows[0] ?? null
   }
 
   async playerById(id: string): Promise<Player | null> {
-    const rows = await this.query<Player>('SELECT * FROM players WHERE id = $1', [id])
+    const rows = await this.query<Player>(
+      'SELECT * FROM players WHERE id = $1',
+      [id],
+    )
     return rows[0] ?? null
   }
 
@@ -275,14 +294,30 @@ class Database {
     }
     const client = await this.getClient()
     try {
-      await client.query('INSERT INTO players (id, wallet_address, username, level, xp, gold, robheroes_balance, last_active, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)', [player.id, player.wallet_address, player.username, player.level, player.xp, player.gold, player.robheroes_balance, player.last_active, player.created_at])
+      await client.query(
+        'INSERT INTO players (id, wallet_address, username, level, xp, gold, robheroes_balance, last_active, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+        [
+          player.id,
+          player.wallet_address,
+          player.username,
+          player.level,
+          player.xp,
+          player.gold,
+          player.robheroes_balance,
+          player.last_active,
+          player.created_at,
+        ],
+      )
       return player
     } finally {
       client.release()
     }
   }
 
-  async updatePlayer(id: string, patch: Partial<Player>): Promise<Player | null> {
+  async updatePlayer(
+    id: string,
+    patch: Partial<Player>,
+  ): Promise<Player | null> {
     if (this.useJson || !this.pool) {
       const data = await this.readJson()
       const idx = data.players.findIndex((p) => p.id === id)
@@ -302,7 +337,10 @@ class Database {
         values.push((patch as Record<string, unknown>)[key])
         i++
       }
-      const result = await client.query(`UPDATE players SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`, values)
+      const result = await client.query(
+        `UPDATE players SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`,
+        values,
+      )
       return this.mapRow<Player>(result.rows[0] ?? {})
     } finally {
       client.release()
@@ -314,12 +352,16 @@ class Database {
   }
 
   async heroById(id: string): Promise<Hero | null> {
-    const rows = await this.query<Hero>('SELECT * FROM heroes WHERE id = $1', [id])
+    const rows = await this.query<Hero>('SELECT * FROM heroes WHERE id = $1', [
+      id,
+    ])
     return rows[0] ?? null
   }
 
   async heroesByPlayer(playerId: string): Promise<Hero[]> {
-    return this.query<Hero>('SELECT * FROM heroes WHERE player_id = $1', [playerId])
+    return this.query<Hero>('SELECT * FROM heroes WHERE player_id = $1', [
+      playerId,
+    ])
   }
 
   async createHero(hero: Hero): Promise<Hero> {
@@ -331,7 +373,20 @@ class Database {
     }
     const client = await this.getClient()
     try {
-      await client.query('INSERT INTO heroes (id, player_id, class, level, xp, hp, atk, def, spd) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)', [hero.id, hero.player_id, hero.class, hero.level, hero.xp, hero.hp, hero.atk, hero.def, hero.spd])
+      await client.query(
+        'INSERT INTO heroes (id, player_id, class, level, xp, hp, atk, def, spd) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+        [
+          hero.id,
+          hero.player_id,
+          hero.class,
+          hero.level,
+          hero.xp,
+          hero.hp,
+          hero.atk,
+          hero.def,
+          hero.spd,
+        ],
+      )
       return hero
     } finally {
       client.release()
@@ -343,7 +398,9 @@ class Database {
   }
 
   async itemById(id: string): Promise<Item | null> {
-    const rows = await this.query<Item>('SELECT * FROM items WHERE id = $1', [id])
+    const rows = await this.query<Item>('SELECT * FROM items WHERE id = $1', [
+      id,
+    ])
     return rows[0] ?? null
   }
 
@@ -356,7 +413,21 @@ class Database {
     }
     const client = await this.getClient()
     try {
-      await client.query('INSERT INTO items (id, name, slot, rarity, atk, def, hp, spd, sockets, engraving_slots) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)', [item.id, item.name, item.slot, item.rarity, item.atk, item.def, item.hp, item.spd, item.sockets, item.engraving_slots])
+      await client.query(
+        'INSERT INTO items (id, name, slot, rarity, atk, def, hp, spd, sockets, engraving_slots) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+        [
+          item.id,
+          item.name,
+          item.slot,
+          item.rarity,
+          item.atk,
+          item.def,
+          item.hp,
+          item.spd,
+          item.sockets,
+          item.engraving_slots,
+        ],
+      )
       return item
     } finally {
       client.release()
@@ -364,10 +435,15 @@ class Database {
   }
 
   async playerInventory(playerId: string): Promise<PlayerInventoryItem[]> {
-    return this.query<PlayerInventoryItem>('SELECT * FROM player_inventory WHERE player_id = $1', [playerId])
+    return this.query<PlayerInventoryItem>(
+      'SELECT * FROM player_inventory WHERE player_id = $1',
+      [playerId],
+    )
   }
 
-  async addInventoryItem(item: PlayerInventoryItem): Promise<PlayerInventoryItem> {
+  async addInventoryItem(
+    item: PlayerInventoryItem,
+  ): Promise<PlayerInventoryItem> {
     if (this.useJson || !this.pool) {
       const data = await this.readJson()
       data.player_inventory.push(item)
@@ -376,14 +452,27 @@ class Database {
     }
     const client = await this.getClient()
     try {
-      await client.query('INSERT INTO player_inventory (id, player_id, item_id, equipped, gems, engraving) VALUES ($1, $2, $3, $4, $5, $6)', [item.id, item.player_id, item.item_id, item.equipped, JSON.stringify(item.gems), item.engraving])
+      await client.query(
+        'INSERT INTO player_inventory (id, player_id, item_id, equipped, gems, engraving) VALUES ($1, $2, $3, $4, $5, $6)',
+        [
+          item.id,
+          item.player_id,
+          item.item_id,
+          item.equipped,
+          JSON.stringify(item.gems),
+          item.engraving,
+        ],
+      )
       return item
     } finally {
       client.release()
     }
   }
 
-  async updateInventoryItem(id: string, patch: Partial<PlayerInventoryItem>): Promise<PlayerInventoryItem | null> {
+  async updateInventoryItem(
+    id: string,
+    patch: Partial<PlayerInventoryItem>,
+  ): Promise<PlayerInventoryItem | null> {
     if (this.useJson || !this.pool) {
       const data = await this.readJson()
       const idx = data.player_inventory.findIndex((item) => item.id === id)
@@ -403,7 +492,10 @@ class Database {
         values.push((patch as Record<string, unknown>)[key])
         i++
       }
-      const result = await client.query(`UPDATE player_inventory SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`, values)
+      const result = await client.query(
+        `UPDATE player_inventory SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`,
+        values,
+      )
       return this.mapRow<PlayerInventoryItem>(result.rows[0] ?? {})
     } finally {
       client.release()
@@ -415,7 +507,9 @@ class Database {
   }
 
   async petsByPlayer(playerId: string): Promise<Pet[]> {
-    return this.query<Pet>('SELECT * FROM pets WHERE player_id = $1', [playerId])
+    return this.query<Pet>('SELECT * FROM pets WHERE player_id = $1', [
+      playerId,
+    ])
   }
 
   async runes(): Promise<Rune[]> {
@@ -423,7 +517,9 @@ class Database {
   }
 
   async runesByPlayer(playerId: string): Promise<Rune[]> {
-    return this.query<Rune>('SELECT * FROM runes WHERE player_id = $1', [playerId])
+    return this.query<Rune>('SELECT * FROM runes WHERE player_id = $1', [
+      playerId,
+    ])
   }
 
   async craftingRecipes(): Promise<CraftingRecipe[]> {
@@ -443,7 +539,10 @@ class Database {
   }
 
   async combatSessionsByPlayer(playerId: string): Promise<CombatSession[]> {
-    return this.query<CombatSession>('SELECT * FROM combat_sessions WHERE player_id = $1 ORDER BY started_at DESC', [playerId])
+    return this.query<CombatSession>(
+      'SELECT * FROM combat_sessions WHERE player_id = $1 ORDER BY started_at DESC',
+      [playerId],
+    )
   }
 
   async createCombatSession(session: CombatSession): Promise<CombatSession> {
@@ -455,14 +554,31 @@ class Database {
     }
     const client = await this.getClient()
     try {
-      await client.query('INSERT INTO combat_sessions (id, player_id, stage, difficulty, result, xp_earned, gold_earned, rewards, started_at, ended_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)', [session.id, session.player_id, session.stage, session.difficulty, session.result, session.xp_earned, session.gold_earned, JSON.stringify(session.rewards), session.started_at, session.ended_at])
+      await client.query(
+        'INSERT INTO combat_sessions (id, player_id, stage, difficulty, result, xp_earned, gold_earned, rewards, started_at, ended_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+        [
+          session.id,
+          session.player_id,
+          session.stage,
+          session.difficulty,
+          session.result,
+          session.xp_earned,
+          session.gold_earned,
+          JSON.stringify(session.rewards),
+          session.started_at,
+          session.ended_at,
+        ],
+      )
       return session
     } finally {
       client.release()
     }
   }
 
-  async updateCombatSession(id: string, patch: Partial<CombatSession>): Promise<CombatSession | null> {
+  async updateCombatSession(
+    id: string,
+    patch: Partial<CombatSession>,
+  ): Promise<CombatSession | null> {
     if (this.useJson || !this.pool) {
       const data = await this.readJson()
       const idx = data.combat_sessions.findIndex((s) => s.id === id)
@@ -484,7 +600,10 @@ class Database {
         values.push(val)
         i++
       }
-      const result = await client.query(`UPDATE combat_sessions SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`, values)
+      const result = await client.query(
+        `UPDATE combat_sessions SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`,
+        values,
+      )
       return this.mapRow<CombatSession>(result.rows[0] ?? {})
     } finally {
       client.release()
@@ -496,12 +615,17 @@ class Database {
   }
 
   async adminByUsername(username: string): Promise<Admin | null> {
-    const rows = await this.query<Admin>('SELECT * FROM admins WHERE username = $1', [username])
+    const rows = await this.query<Admin>(
+      'SELECT * FROM admins WHERE username = $1',
+      [username],
+    )
     return rows[0] ?? null
   }
 
   async adminById(id: string): Promise<Admin | null> {
-    const rows = await this.query<Admin>('SELECT * FROM admins WHERE id = $1', [id])
+    const rows = await this.query<Admin>('SELECT * FROM admins WHERE id = $1', [
+      id,
+    ])
     return rows[0] ?? null
   }
 
@@ -514,7 +638,18 @@ class Database {
     }
     const client = await this.getClient()
     try {
-      await client.query('INSERT INTO admins (id, username, password_hash, totp_secret, mfa_enabled, created_at, last_login) VALUES ($1, $2, $3, $4, $5, $6, $7)', [admin.id, admin.username, admin.password_hash, admin.totp_secret, admin.mfa_enabled, admin.created_at, admin.last_login])
+      await client.query(
+        'INSERT INTO admins (id, username, password_hash, totp_secret, mfa_enabled, created_at, last_login) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [
+          admin.id,
+          admin.username,
+          admin.password_hash,
+          admin.totp_secret,
+          admin.mfa_enabled,
+          admin.created_at,
+          admin.last_login,
+        ],
+      )
       return admin
     } finally {
       client.release()
@@ -541,7 +676,10 @@ class Database {
         values.push((patch as Record<string, unknown>)[key])
         i++
       }
-      const result = await client.query(`UPDATE admins SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`, values)
+      const result = await client.query(
+        `UPDATE admins SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`,
+        values,
+      )
       return this.mapRow<Admin>(result.rows[0] ?? {})
     } finally {
       client.release()
