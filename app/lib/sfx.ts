@@ -11,6 +11,7 @@ export type SfxName =
 
 let audioContext: AudioContext | null = null
 let muted = false
+let volume = 0.7
 
 function getContext(): AudioContext | null {
   if (typeof window === 'undefined' || !('AudioContext' in window)) return null
@@ -21,6 +22,14 @@ function getContext(): AudioContext | null {
 
 export function setSfxMuted(value: boolean): void {
   muted = value
+}
+
+export function setSfxVolume(value: number): void {
+  volume = Math.max(0, Math.min(1, value))
+}
+
+export function getSfxVolume(): number {
+  return volume
 }
 
 export function isSfxMuted(): boolean {
@@ -49,7 +58,7 @@ export function playSfx(name: SfxName): void {
   oscillator.type = sound.type
   oscillator.frequency.setValueAtTime(sound.frequency, now)
   if (sound.slide) oscillator.frequency.linearRampToValueAtTime(sound.slide, now + sound.duration)
-  gain.gain.setValueAtTime(sound.gain, now)
+  gain.gain.setValueAtTime(sound.gain * volume, now)
   gain.gain.exponentialRampToValueAtTime(0.001, now + sound.duration)
   oscillator.connect(gain).connect(context.destination)
   oscillator.start(now)

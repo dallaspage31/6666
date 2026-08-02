@@ -29,7 +29,7 @@ import {
   getEffectKey,
   type EffectName,
 } from '../lib/game-assets'
-import { isSfxMuted, playSfx, setSfxMuted } from '../lib/sfx'
+import { getSfxVolume, isSfxMuted, playSfx, setSfxMuted, setSfxVolume } from '../lib/sfx'
 import { rollLoot } from '../lib/loot'
 import {
   addGold,
@@ -44,9 +44,14 @@ import {
   saveMetaState,
   salvageBelowRarity,
   salvageItem,
+  exportSave,
+  importSave,
   type StatKey,
 } from '../lib/progression'
 import { generateItemIconDataUrl } from '../lib/sprite-gen'
+import { getCampaignRegions } from '../lib/campaign'
+import { getFrontierEncounter, type FrontierPolicy } from '../lib/frontier'
+import { solveOfflineProgress, type OfflineSummary } from '../lib/offline'
 
 const RARITY_BORDER_COLORS: Record<HeroRarity, string> = {
   Common: '#9ca3af',
@@ -144,15 +149,21 @@ export default function BattleGame() {
     totalMonsters: number
     result: CombatResult | null
     frontierModifiers: FrontierModifier[]
+    frontierLabel: string
   } | null>(null)
   const [difficulty, setDifficulty] = useState('normal')
   const [speed, setSpeed] = useState(1)
   const [endless, setEndless] = useState(false)
   const [muted, setMuted] = useState(isSfxMuted())
   const [, setMetaVersion] = useState(0)
-  const [metaTab, setMetaTab] = useState<'heroes' | 'inventory' | 'forge'>('heroes')
+  const [metaTab, setMetaTab] = useState<'heroes' | 'inventory' | 'forge' | 'map' | 'settings'>('heroes')
   const [metaOpen, setMetaOpen] = useState(false)
   const [selectedHeroId, setSelectedHeroId] = useState('hero-Ironclad')
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [saveCode, setSaveCode] = useState('')
+  const [offlineSummary, setOfflineSummary] = useState<OfflineSummary | null>(null)
+  const [selectedStage, setSelectedStage] = useState(1)
+  const [selectedMode, setSelectedMode] = useState<'campaign' | 'frontier'>('campaign')
 
   const createGame = useCallback(() => {
     if (!containerRef.current || gameRef.current) return
@@ -167,6 +178,10 @@ export default function BattleGame() {
       parent: container,
       backgroundColor: '#0a0a1a',
       pixelArt: true,
+      render: {
+        antialias: false,
+        pixelArt: true,
+      },
       physics: {
         default: 'arcade',
         arcade: { debug: false },
@@ -196,6 +211,12 @@ export default function BattleGame() {
 
   useEffect(() => {
     loadMetaState()
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches && !metaState.settings.reducedMotion) {
+      metaState.settings.reducedMotion = true
+    }
+    setSfxMuted(metaState.settings.muted)
+    setSfxVolume(metaState.settings.volume)
+    setOfflineSummary(solveOfflineProgress())
     setMetaVersion((version) => version + 1)
     stateUpdateCallback = () => setOverlay(buildOverlay())
     const cleanup = createGame()
@@ -206,6 +227,14 @@ export default function BattleGame() {
   }, [createGame])
 
   const refreshMeta = () => {
+    saveMetaState()
+    setMetaVersion((version) => version + 1)
+  }
+
+  const updateSetting = (update: Partial<typeof metaState.settings>) => {
+    metaState.settings = { ...metaState.settings, ...update }
+    setSfxMuted(metaState.settings.muted)
+    setSfxVolume(metaState.settings.volume)
     saveMetaState()
     setMetaVersion((version) => version + 1)
   }
@@ -225,7 +254,7 @@ export default function BattleGame() {
         <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-lg border border-gray-800 bg-black/80 p-3 font-mono text-xs text-green-400 shadow-lg backdrop-blur-sm">
           <div className="font-bold text-cyan-300">
             {endlessMode && overlay.wave > MAX_WAVE
-              ? `Frontier D${overlay.wave}`
+              ? overlay.frontierLabel
               : `Wave ${overlay.wave}/${MAX_WAVE}`}
           </div>
           <div>Turn: {overlay.turn}</div>
@@ -249,10 +278,23 @@ export default function BattleGame() {
         </div>
       )}
 
+      {offlineSummary && (
+        <div role="dialog" aria-label="Offline progress summary" className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
+          <div className="rounded-xl border border-cyan-700 bg-gray-900 p-5 text-sm text-gray-200 shadow-xl">
+            <h2 className="text-lg font-bold text-cyan-300">While you were away</h2>
+            <p className="mt-2">Frontier depth gained: +{offlineSummary.depthGained}</p>
+            <p>Gold: +{offlineSummary.gold} · Essence: +{offlineSummary.essence}</p>
+            <p>Items kept: {offlineSummary.itemsKept} · Safe depth: D{offlineSummary.stoppedAtDepth}</p>
+            <button aria-label="Claim offline progress" onClick={() => setOfflineSummary(null)} className="mt-4 rounded bg-cyan-600 px-3 py-1.5 font-semibold text-black">Claim</button>
+          </div>
+        </div>
+      )}
+
       <div className="absolute right-3 top-3 z-10 flex flex-col gap-2">
         <div className="rounded-lg border border-gray-800 bg-black/80 p-3 text-xs text-gray-200 shadow-lg backdrop-blur-sm">
           <label className="block font-semibold text-cyan-300">Difficulty</label>
           <select
+            aria-label="Difficulty"
             className="mt-1 w-full rounded bg-gray-900 px-2 py-1 text-gray-100 outline-none ring-1 ring-gray-700"
             value={difficulty}
             onChange={(e) => setDifficulty(e.target.value)}
@@ -265,6 +307,7 @@ export default function BattleGame() {
 
           <label className="mt-2 block font-semibold text-cyan-300">Speed</label>
           <input
+            aria-label="Game speed"
             type="range"
             min={1}
             max={4}
@@ -277,6 +320,7 @@ export default function BattleGame() {
 
           <label className="mt-2 flex items-center gap-2 font-semibold text-cyan-300">
             <input
+              aria-label="Enable endless frontier"
               type="checkbox"
               checked={endless}
               onChange={(e) => setEndless(e.target.checked)}
@@ -285,6 +329,7 @@ export default function BattleGame() {
             Endless Frontier
           </label>
           <button
+            aria-label="Toggle sound"
             onClick={() => {
               const next = !muted
               setMuted(next)
@@ -296,6 +341,7 @@ export default function BattleGame() {
           </button>
 
           <button
+            aria-label="Restart battle"
             onClick={handleRestart}
             className="mt-3 w-full rounded bg-cyan-600 px-3 py-1.5 font-semibold text-black transition hover:bg-cyan-400"
           >
@@ -315,7 +361,7 @@ export default function BattleGame() {
         {metaOpen && (
           <div className="border-t border-gray-800 p-3">
             <div className="mb-3 flex gap-1">
-              {(['heroes', 'inventory', 'forge'] as const).map((tab) => (
+              {(['heroes', 'inventory', 'forge', 'map', 'settings'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setMetaTab(tab)}
@@ -395,6 +441,56 @@ export default function BattleGame() {
                 <button onClick={() => { mintForgeTokens(); refreshMeta() }} className="rounded bg-fuchsia-700 px-2 py-1">Mint Forge Tokens</button>
               </div>
             )}
+            {metaTab === 'map' && (
+              <div role="region" aria-label="Campaign map" className="max-h-56 overflow-y-auto">
+                <div className="mb-2 flex gap-2">
+                  <button aria-label="Campaign mode" onClick={() => setSelectedMode('campaign')} className={`rounded px-2 py-1 ${selectedMode === 'campaign' ? 'bg-cyan-600 text-black' : 'bg-gray-800'}`}>Campaign</button>
+                  <button aria-label="Frontier mode" onClick={() => setSelectedMode('frontier')} className={`rounded px-2 py-1 ${selectedMode === 'frontier' ? 'bg-fuchsia-600 text-black' : 'bg-gray-800'}`}>Frontier</button>
+                </div>
+                {selectedMode === 'campaign' ? getCampaignRegions().map((region) => (
+                  <div key={region.id} className="mb-2">
+                    <div className="font-semibold text-cyan-300">{region.name} · {region.biome}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {region.stages.map((stage) => {
+                        const unlocked = stage.id <= metaState.campaign.highestUnlockedStage
+                        const complete = metaState.campaign.completedStages.includes(stage.id)
+                        return <button key={stage.id} disabled={!unlocked} aria-label={`${stage.name}${unlocked ? '' : ' locked'}`} onClick={() => { setSelectedStage(stage.id); selectedCampaignStage = stage.id }} className={`rounded px-1.5 py-0.5 ${complete ? 'bg-green-700' : unlocked ? 'bg-gray-700' : 'bg-gray-900 text-gray-600'}`}>{stage.stage}</button>
+                      })}
+                    </div>
+                  </div>
+                )) : (
+                  <div className="space-y-1">
+                    <div className="font-semibold text-fuchsia-300">Frontier</div>
+                    <div>Unlock: {metaState.campaign.campaignCompleted ? 'Campaign complete' : 'Complete all campaign stages'}</div>
+                    <div>Best depth: D{metaState.frontier.bestDepth} · Checkpoint: D{Math.floor(metaState.frontier.bestDepth / 10) * 10}</div>
+                    <div>Seed: {metaState.frontier.runSeed}</div>
+                    <select aria-label="Frontier policy" value={metaState.frontier.policy} onChange={(event) => { metaState.frontier.policy = event.target.value as FrontierPolicy; refreshMeta() }} className="rounded bg-gray-900 px-2 py-1">
+                      <option value="push">Push</option><option value="farm">Farm</option><option value="safePush">Safe Push</option><option value="greedy">Greedy</option>
+                    </select>
+                    <button aria-label="Start frontier" disabled={!metaState.campaign.campaignCompleted} onClick={() => { endlessMode = true; restartBattle() }} className="ml-2 rounded bg-fuchsia-700 px-2 py-1">Start / Resume</button>
+                    <button aria-label="Leave frontier" onClick={() => { endlessMode = false }} className="ml-1 rounded bg-gray-700 px-2 py-1">Leave</button>
+                  </div>
+                )}
+                {selectedMode === 'campaign' && <button aria-label="Start selected campaign stage" onClick={() => { selectedCampaignStage = selectedStage; endlessMode = false; restartBattle() }} className="rounded bg-cyan-700 px-2 py-1">Start Stage {selectedStage}</button>}
+              </div>
+            )}
+            {metaTab === 'settings' && (
+              <div role="region" aria-label="Settings" className="space-y-2">
+                <label className="flex items-center justify-between gap-2">Volume
+                  <input aria-label="Master volume" type="range" min={0} max={1} step={0.05} value={metaState.settings.volume} onChange={(event) => updateSetting({ volume: Number(event.target.value) })} />
+                </label>
+                <label className="flex items-center gap-2"><input aria-label="Mute audio" type="checkbox" checked={metaState.settings.muted} onChange={(event) => updateSetting({ muted: event.target.checked })} />Mute</label>
+                <label className="flex items-center gap-2"><input aria-label="Reduced motion" type="checkbox" checked={metaState.settings.reducedMotion} onChange={(event) => { reducedMotion = event.target.checked; updateSetting({ reducedMotion: event.target.checked }) }} />Reduced motion</label>
+                <label className="flex items-center gap-2"><input aria-label="Auto mint" type="checkbox" checked={metaState.settings.autoMint} onChange={(event) => updateSetting({ autoMint: event.target.checked })} />Auto-mint</label>
+                <label className="block">Salvage below
+                  <select aria-label="Salvage filter" value={metaState.settings.salvageBelow} onChange={(event) => updateSetting({ salvageBelow: event.target.value as HeroRarity })} className="ml-2 rounded bg-gray-900 px-2 py-1">
+                    {(['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Cosmic'] as HeroRarity[]).map((rarity) => <option key={rarity}>{rarity}</option>)}
+                  </select>
+                </label>
+                <textarea aria-label="Save export or import code" value={saveCode} onChange={(event) => setSaveCode(event.target.value)} placeholder="Paste save code here" className="h-16 w-full rounded bg-gray-900 p-1" />
+                <div className="flex gap-1"><button aria-label="Export save" onClick={() => setSaveCode(exportSave())} className="rounded bg-gray-700 px-2 py-1">Export</button><button aria-label="Import save" onClick={() => { if (importSave(saveCode)) refreshMeta() }} className="rounded bg-cyan-700 px-2 py-1">Import</button></div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -428,6 +524,7 @@ export default function BattleGame() {
 }
 
 function buildOverlay() {
+  const frontier = endlessMode && currentWave > MAX_WAVE ? getFrontierEncounter(metaState.frontier.runSeed, currentWave - MAX_WAVE) : null
   return {
     phase: battlePhase,
     wave: currentWave,
@@ -437,7 +534,8 @@ function buildOverlay() {
     aliveMonsters: monsters.filter((m) => m.hp > 0).length,
     totalMonsters: monsters.length,
     result: battleResult,
-    frontierModifiers: getFrontierModifiers(currentWave),
+    frontierModifiers: endlessMode && currentWave > MAX_WAVE ? frontierEncounter.modifiers : getFrontierModifiers(currentWave),
+    frontierLabel: frontier ? `Frontier D${frontier.depth} · ${frontier.biome} · ${frontier.template} · ${frontier.modifiers.join(', ')}` : '',
   }
 }
 
@@ -461,6 +559,9 @@ let difficultyKey = 'normal'
 let speedMultiplier = 1
 let endlessMode = false
 let hitStop = false
+let selectedCampaignStage = 1
+let frontierEncounter = getFrontierEncounter('run-1', 1)
+let reducedMotion = false
 
 function initScene(this: Phaser.Scene) {
   sceneRef = this
@@ -482,6 +583,7 @@ function resetGameState() {
   hpBars = new Map()
   parallaxLayers = []
   hitStop = false
+  reducedMotion = metaState.settings.reducedMotion
 }
 
 function preloadScene(this: Phaser.Scene) {
@@ -632,7 +734,7 @@ function createMonster(wave: number, monsterId: string, isBoss: boolean): Combat
   const bossMult = isBoss && bossConfig ? Math.max(bossConfig.hpMultiplier, bossConfig.atkMultiplier) : 1.0
 
   const endlessMult = getEndlessMultiplier(wave)
-  const modifiers = getFrontierModifiers(wave)
+  const modifiers = wave > MAX_WAVE && endlessMode ? frontierEncounter.modifiers : getFrontierModifiers(wave)
   const frenzied = modifiers.includes('Frenzied')
   const armored = modifiers.includes('Armored')
   const storm = modifiers.includes('ElementalStorm')
@@ -694,11 +796,13 @@ function startWaveIntro() {
   turnNumber++
 
   const effectiveWave = getEffectiveWave(currentWave)
+  if (endlessMode && currentWave > MAX_WAVE) frontierEncounter = getFrontierEncounter(metaState.frontier.runSeed, currentWave - MAX_WAVE)
   const bossConfig = BOSS_CONFIGS[effectiveWave]
+  const campaignStage = !endlessMode && selectedCampaignStage > MAX_WAVE ? getCampaignRegions().flatMap((region) => region.stages).find((stage) => stage.id === selectedCampaignStage) : undefined
   const waveConfig = WAVE_CONFIGS.find((w) => w.waveNumber === effectiveWave)
 
   const label = endlessMode && currentWave > MAX_WAVE
-    ? `Frontier D${currentWave}`
+    ? `Frontier D${frontierEncounter.depth} · ${frontierEncounter.biome} · ${frontierEncounter.template} · ${frontierEncounter.modifiers.join(', ')}`
     : `Wave ${currentWave}/${MAX_WAVE}`
 
   if (bossConfig) {
@@ -714,7 +818,11 @@ function startWaveIntro() {
     const modifiers = getFrontierModifiers(currentWave)
     const tint = modifiers.includes('Darkness') ? 0x555577 : modifiers.includes('ElementalStorm') ? 0x6644aa : 0xffffff
     sceneRef.children.list.filter((child): child is Phaser.GameObjects.TileSprite => child instanceof Phaser.GameObjects.TileSprite).forEach((layer) => layer.setTint(tint))
-    spawnWaveMonsters(waveConfig, bossConfig)
+    if (campaignStage) {
+      monsters = campaignStage.monsterIds.map((monsterId) => createMonster(currentWave, monsterId, false))
+    } else {
+      spawnWaveMonsters(currentWave > MAX_WAVE && endlessMode ? undefined : waveConfig, currentWave > MAX_WAVE && endlessMode ? undefined : bossConfig)
+    }
     positionCombatants(sceneRef, sceneRef.cameras.main.width, sceneRef.cameras.main.height)
     updateSprites(sceneRef)
     updateHpBars(sceneRef)
@@ -727,6 +835,12 @@ function startWaveIntro() {
 function spawnWaveMonsters(waveConfig?: WaveConfig, bossConfig?: BossConfig) {
   monsters = []
 
+  if (endlessMode && currentWave > MAX_WAVE) {
+    frontierEncounter = getFrontierEncounter(metaState.frontier.runSeed, currentWave - MAX_WAVE)
+    frontierEncounter.monsterIds.forEach((mid) => monsters.push(createMonster(currentWave, mid, false)))
+    if (frontierEncounter.checkpoint) monsters.push(createMonster(currentWave, 'boss-warden', true))
+    return
+  }
   if (bossConfig) {
     monsters.push(createMonster(currentWave, bossConfig.monsterId, true))
   } else if (waveConfig) {
@@ -1134,7 +1248,7 @@ function applyAction(action: BattleAction) {
           playSfx('crit')
         }
         if (action.isUltimate || target.isBoss) {
-          sceneRef.cameras.main.shake(180, 0.008)
+          if (!reducedMotion) sceneRef.cameras.main.shake(180, 0.008)
           hitStop = true
         }
         playAttackAnim(sprite, target, action.effect ?? 'slash', action.damage)
@@ -1166,7 +1280,7 @@ function applyAction(action: BattleAction) {
       const target = heroes.find((h) => h.id === action.targetId)
       if (target) {
         if (action.tag) showFloatingText(target.x, target.y - 76, action.tag, action.tag === 'WEAK!' ? '#ffdd44' : '#99aacc')
-        if (monster.isBoss) sceneRef.cameras.main.shake(160, 0.006)
+        if (monster.isBoss && !reducedMotion) sceneRef.cameras.main.shake(160, 0.006)
         playAttackAnim(sprite, target, action.effect ?? 'slash', action.damage)
       }
     }
@@ -1449,6 +1563,12 @@ function endWave() {
   const drops = rollLoot(currentWave, difficultyKey, Boolean(bossConfig))
   addItems(drops)
   saveMetaState()
+  if (!endlessMode) {
+    metaState.campaign.completedStages = Array.from(new Set([...metaState.campaign.completedStages, currentWave]))
+    metaState.campaign.highestUnlockedStage = Math.max(metaState.campaign.highestUnlockedStage, currentWave + 1)
+    if (currentWave >= 120) metaState.campaign.campaignCompleted = true
+    saveMetaState()
+  }
   notifyStateUpdate()
   if (drops.length > 0) addLog(`Loot found: ${drops.map((item) => item.name).join(', ')}`, 'wave-end')
   addLog(`Rewards: +${xpReward} XP each, +${Math.floor(goldReward)} gold`, 'wave-end')
@@ -1460,7 +1580,8 @@ function endWave() {
     addLog(`BOSS defeated! +${bossConfig.xpReward} XP, +${bossConfig.goldReward} gold`, 'wave-end')
   }
 
-  if (!endlessMode && currentWave >= MAX_WAVE) {
+  const campaignTargetReached = !endlessMode && currentWave >= selectedCampaignStage
+  if (campaignTargetReached) {
     battlePhase = 'complete'
     battleResult = 'victory'
     addLog('VICTORY! All waves conquered!', 'wave-end')
@@ -1477,7 +1598,8 @@ function endWave() {
 }
 
 function handleWaveComplete() {
-  if (!endlessMode && currentWave >= MAX_WAVE) {
+  const campaignTargetReached = !endlessMode && currentWave >= selectedCampaignStage
+  if (campaignTargetReached) {
     battlePhase = 'complete'
     battleResult = 'victory'
     addLog('VICTORY! All waves conquered!', 'wave-end')
@@ -1521,6 +1643,7 @@ function updateScene(this: Phaser.Scene, _time: number, delta: number) {
 function restartBattle() {
   if (!sceneRef) return
   resetGameState()
+  if (!endlessMode) currentWave = Math.max(0, selectedCampaignStage - 1)
   const w = sceneRef.cameras.main.width
   const h = sceneRef.cameras.main.height
   spawnHeroParty(sceneRef)

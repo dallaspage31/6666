@@ -43,6 +43,10 @@ export interface MetaState {
   heroes: Record<string, HeroProgression>
   inventory: Item[]
   equipped: Record<string, Partial<Record<ItemSlot, string>>>
+  campaign: { highestUnlockedStage: number; completedStages: number[]; campaignCompleted: boolean }
+  frontier: { bestDepth: number; currentDepth: number; runSeed: string; policy: 'push' | 'farm' | 'safePush' | 'greedy' }
+  settings: { volume: number; muted: boolean; reducedMotion: boolean; salvageBelow: HeroRarity; autoMint: boolean }
+  lastSaveAt: number
 }
 
 export interface EffectiveHeroStats {
@@ -72,6 +76,10 @@ function defaultMetaState(): MetaState {
     heroes: Object.fromEntries(HERO_NAMES.map((name) => [`hero-${name}`, newHero(`hero-${name}`)])),
     inventory: [],
     equipped: {},
+    campaign: { highestUnlockedStage: 1, completedStages: [], campaignCompleted: false },
+    frontier: { bestDepth: 0, currentDepth: 1, runSeed: 'run-1', policy: 'safePush' },
+    settings: { volume: 0.7, muted: false, reducedMotion: false, salvageBelow: 'Common', autoMint: false },
+    lastSaveAt: Date.now(),
   }
 }
 
@@ -96,6 +104,10 @@ function normalize(state: MetaState): MetaState {
     heroes,
     inventory: (state.inventory ?? []).map((item) => ({ ...item, socketedRunes: item.socketedRunes ?? Array(item.sockets).fill(null) })),
     equipped: state.equipped ?? {},
+    campaign: { ...defaults.campaign, ...state.campaign },
+    frontier: { ...defaults.frontier, ...state.frontier },
+    settings: { ...defaults.settings, ...state.settings },
+    lastSaveAt: Number(state.lastSaveAt ?? Date.now()),
   }
 }
 
@@ -115,7 +127,50 @@ export function loadMetaState(): MetaState {
 }
 
 export function saveMetaState(): void {
+  metaState.lastSaveAt = Date.now()
   if (typeof window !== 'undefined') window.localStorage.setItem(META_SAVE_KEY, JSON.stringify(metaState))
+}
+
+export function exportSave(): string {
+  const json = JSON.stringify(metaState)
+  if (typeof window !== 'undefined') return window.btoa(unescape(encodeURIComponent(json)))
+  return json
+}
+
+export function importSave(code: string): boolean {
+  try {
+    const json = typeof window !== 'undefined' ? decodeURIComponent(escape(window.atob(code.trim()))) : code
+    const parsed = JSON.parse(json) as MetaState
+    replaceMetaState(sanitizeMetaState(parsed))
+    saveMetaState()
+    return true
+  } catch {
+    return false
+  }
+}
+
+function sanitizeMetaState(state: MetaState): MetaState {
+  const safe = normalize(state)
+  const rarities = Object.keys(HERO_RARITY_CONFIGS) as HeroRarity[]
+  const slots: ItemSlot[] = ['weapon', 'armor', 'ring', 'artifact']
+  const elements: CombatElement[] = ['physical', 'fire', 'ice', 'nature', 'shadow', 'holy']
+  safe.gold = Math.min(1e15, Math.max(0, Number(safe.gold) || 0))
+  safe.essence = Math.min(1e15, Math.max(0, Number(safe.essence) || 0))
+  safe.inventory = safe.inventory.slice(0, 500).map((item) => ({
+    ...item,
+    name: item.name.replace(/[^\p{L}\p{N} .,'-]/gu, '').slice(0, 80) || 'Recovered Item',
+    rarity: rarities.includes(item.rarity) ? item.rarity : 'Common',
+    slot: slots.includes(item.slot) ? item.slot : 'artifact',
+    element: item.element && elements.includes(item.element) ? item.element : undefined,
+    baseStats: { hp: clamp(item.baseStats?.hp), atk: clamp(item.baseStats?.atk), def: clamp(item.baseStats?.def), spd: clamp(item.baseStats?.spd) },
+    affixes: (item.affixes ?? []).slice(0, 4).map((affix) => ({ ...affix, value: clamp(affix.value, 1000), label: String(affix.label).slice(0, 40) })),
+    sockets: Math.min(4, Math.max(0, Math.floor(item.sockets || 0))),
+  }))
+  return safe
+}
+
+function clamp(value: number, max = 1e6): number {
+  return Math.min(max, Math.max(-max, Number(value) || 0))
 }
 
 export function addGold(amount: number): void {
