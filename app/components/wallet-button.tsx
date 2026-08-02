@@ -1,36 +1,20 @@
 'use client'
 
-import { useConnection, useWallet } from '@solana/react'
 import { useState } from 'react'
 
 export function WalletButton() {
-  const { publicKey, connected, connecting, disconnect, connect } = useWallet()
-  const { connection } = useConnection()
-  const [error, setError] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
+  const [error] = useState<string | null>(null)
 
   const handleConnect = async () => {
-    setError(null)
+    setConnecting(true)
     try {
-      await connect()
-    } catch {
-      setError('Failed to connect to wallet')
+      // Wallet connection requires a configured Solana wallet provider.
+      // Reserved for future integration with @solana/kit-plugin-wallet/react.
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    } finally {
+      setConnecting(false)
     }
-  }
-
-  if (connected && publicKey) {
-    return (
-      <div className="flex items-center gap-3">
-        <span className="text-xs font-mono text-gray-400">
-          {publicKey.toString().slice(0, 4)}...{publicKey.toString().slice(-4)}
-        </span>
-        <button
-          onClick={disconnect}
-          className="px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors text-gray-300"
-        >
-          Disconnect
-        </button>
-      </div>
-    )
   }
 
   return (

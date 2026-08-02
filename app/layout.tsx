@@ -9,7 +9,7 @@ export const metadata = {
 }
 
 const navItems = [
-  { href: '/', label: 'Game' },
+  { href: '/game', label: 'Game' },
   { href: '/admin', label: 'Admin' },
   { href: '/docs', label: 'Docs' },
 ]
