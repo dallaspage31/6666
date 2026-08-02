@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { getErrorMessage } from '../lib/errors'
+
 interface TokenGateProps {
   requiredAmount: number
   tokenSymbol?: string
@@ -18,19 +20,29 @@ export function TokenGate({
 }: TokenGateProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [hasAccess, setHasAccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleVerify = async () => {
     setIsLoading(true)
+    setError(null)
     try {
       const res = await fetch('/api/token-balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tokenSymbol, requiredAmount }),
       })
-      const data = await res.json()
-      setHasAccess(data.hasAccess ?? false)
-    } catch {
+      if (!res.ok) {
+        throw new Error(`Token balance check failed with status ${res.status}`)
+      }
+      const data: unknown = await res.json()
+      if (typeof data !== 'object' || data === null || typeof (data as { hasAccess?: unknown }).hasAccess !== 'boolean') {
+        throw new Error('Token balance check returned an unexpected response')
+      }
+      setHasAccess((data as { hasAccess: boolean }).hasAccess)
+    } catch (err) {
+      console.error('Token ownership verification failed', err)
       setHasAccess(false)
+      setError(getErrorMessage(err))
     } finally {
       setIsLoading(false)
     }
@@ -57,6 +69,11 @@ export function TokenGate({
       >
         {isLoading ? 'Verifying...' : 'Verify Token Ownership'}
       </button>
+      {error && (
+        <p className="mt-3 text-xs text-red-400 text-center">
+          Could not verify ownership: {error}
+        </p>
+      )}
     </div>
   )
 }

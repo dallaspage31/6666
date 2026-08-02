@@ -24,23 +24,47 @@ function json(data: unknown, status = 200): Response {
   })
 }
 
+class HttpError extends Error {
+  constructor(message: string, public status: number) {
+    super(message)
+    this.name = 'HttpError'
+  }
+}
+
+function requireSecret(env: Env, key: keyof Env): string {
+  const value = env[key]
+  if (!value) {
+    throw new HttpError(`Server misconfigured: ${key} is not set`, 500)
+  }
+  return value
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url)
+    try {
+      const url = new URL(request.url)
 
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders })
+      if (request.method === 'OPTIONS') {
+        return new Response(null, { headers: corsHeaders })
+      }
+
+      if (url.pathname === '/health') {
+        return json({ status: 'ok' })
+      }
+
+      if (url.pathname.startsWith('/api/')) {
+        return await handleApiRequest(request, url.pathname.replace('/api', ''), env)
+      }
+
+      return json({ error: 'Not Found' }, 404)
+    } catch (error) {
+      if (error instanceof HttpError) {
+        console.error(`[worker] ${request.method} ${request.url} -> ${error.status}`, error)
+        return json({ error: error.message }, error.status)
+      }
+      console.error(`[worker] Unhandled error on ${request.method} ${request.url}`, error)
+      return json({ error: 'Internal Server Error' }, 500)
     }
-
-    if (url.pathname === '/health') {
-      return json({ status: 'ok' })
-    }
-
-    if (url.pathname.startsWith('/api/')) {
-      return handleApiRequest(request, url.pathname.replace('/api', ''), env)
-    }
-
-    return json({ error: 'Not Found' }, 404)
   },
 
   async scheduled(
@@ -73,18 +97,31 @@ async function handleApiRequest(
 }
 
 async function handlePlayerSession(request: Request, env: Env): Promise<Response> {
-  const body = await request.json().catch(() => null)
-  if (!body || !body.playerId) {
+  const secret = requireSecret(env, 'PLAYER_SESSION_SECRET')
+
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch (error) {
+    console.warn('[worker] Rejected player session with unparsable body', error)
+    return json({ error: 'Request body must be valid JSON' }, 400)
+  }
+
+  const playerId =
+    typeof body === 'object' && body !== null && 'playerId' in body
+      ? (body as { playerId: unknown }).playerId
+      : undefined
+  if (typeof playerId !== 'string' || playerId.length === 0) {
     return json({ error: 'playerId required' }, 400)
   }
 
-  const payload = `${body.playerId}:${Date.now()}`
+  const payload = `${playerId}:${Date.now()}`
   const signature = new Uint8Array(
     await crypto.subtle.sign(
       'HMAC',
       await crypto.subtle.importKey(
         'raw',
-        new TextEncoder().encode(env.PLAYER_SESSION_SECRET),
+        new TextEncoder().encode(secret),
         { name: 'HMAC', hash: 'SHA-256' },
         false,
         ['sign'],
@@ -96,16 +133,37 @@ async function handlePlayerSession(request: Request, env: Env): Promise<Response
   return json({ sessionToken: token, expiresIn: 3600 })
 }
 
-async function parseSessionToken(token: string, env: Env): Promise<string | null> {
+function decodeBase64Url(value: string) {
+  let binary: string
+  try {
+    binary = atob(value.replace(/-/g, '+').replace(/_/g, '/'))
+  } catch (error) {
+    console.warn('[worker] Rejected session token with malformed base64url signature', error)
+    return null
+  }
+
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+export async function parseSessionToken(token: string, env: Env): Promise<string | null> {
+  const secret = requireSecret(env, 'PLAYER_SESSION_SECRET')
+
   const parts = token.split(':')
   if (parts.length !== 3) return null
 
   const [playerId, timestamp, signature] = parts
   const payload = `${playerId}:${timestamp}`
 
+  const signatureBytes = decodeBase64Url(signature)
+  if (!signatureBytes) return null
+
   const key = await crypto.subtle.importKey(
     'raw',
-    new TextEncoder().encode(env.PLAYER_SESSION_SECRET),
+    new TextEncoder().encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['verify'],
@@ -114,7 +172,7 @@ async function parseSessionToken(token: string, env: Env): Promise<string | null
   const valid = await crypto.subtle.verify(
     'HMAC',
     key,
-    Uint8Array.from(atob(signature.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)),
+    signatureBytes,
     new TextEncoder().encode(payload),
   )
 
@@ -133,7 +191,7 @@ async function handleAdminPlayers(request: Request, env: Env): Promise<Response>
   }
 
   const token = authHeader.split(' ')[1]
-  if (token !== env.ADMIN_JWT_SECRET) {
+  if (token !== requireSecret(env, 'ADMIN_JWT_SECRET')) {
     return json({ error: 'Invalid token' }, 403)
   }
 

@@ -74,10 +74,12 @@ export default function BattleGame() {
     aliveMonsters: number
     totalMonsters: number
   } | null>(null)
+  const [initError, setInitError] = useState<string | null>(null)
 
   const createGame = useCallback(() => {
     if (!containerRef.current) return
     if (gameRef.current) return
+    setInitError(null)
 
     const container = containerRef.current
     const width = container.clientWidth || 800
@@ -107,12 +109,21 @@ export default function BattleGame() {
       },
     }
 
-    const game = new Phaser.Game(config)
-    gameRef.current = game
+    try {
+      gameRef.current = new Phaser.Game(config)
+    } catch (error) {
+      console.error('Failed to start the battle renderer', error)
+      setInitError(error instanceof Error ? error.message : 'Unknown renderer error')
+      return
+    }
 
     return () => {
       if (gameRef.current) {
-        gameRef.current.destroy(true)
+        try {
+          gameRef.current.destroy(true)
+        } catch (error) {
+          console.error('Failed to tear down the battle renderer', error)
+        }
         gameRef.current = null
       }
     }
@@ -134,6 +145,11 @@ export default function BattleGame() {
   return (
     <div className="relative w-full h-full min-h-[400px]">
       <div ref={containerRef} className="w-full h-full" />
+      {initError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-red-400 font-mono text-sm p-4 text-center z-20">
+          Battle renderer failed to start: {initError}
+        </div>
+      )}
       {overlay && (
         <div className="absolute top-2 left-2 bg-black/70 text-green-400 font-mono text-xs p-2 rounded max-w-[260px] pointer-events-none z-10">
           <div>Wave: {overlay.wave}/{MAX_WAVE}</div>

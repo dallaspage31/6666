@@ -1,4 +1,9 @@
-export type CraftingResult = 'success' | 'partial' | 'failure' | 'insufficient-materials'
+export type CraftingResult =
+  | 'success'
+  | 'partial'
+  | 'failure'
+  | 'insufficient-materials'
+  | 'unknown-recipe'
 
 export interface CraftingRecipe {
   id: string
@@ -23,6 +28,7 @@ export interface CraftingResultDetail {
   materialsConsumed: string[]
   xpGained: number
   goldSpent: number
+  error?: string
 }
 
 export const CRAFTING_RECIPES: CraftingRecipe[] = [
@@ -144,11 +150,12 @@ export function craft(recipeId: string, inventory: Record<string, number>): Craf
   if (!recipe) {
     return {
       recipeId,
-      result: 'failure',
+      result: 'unknown-recipe',
       itemsCrafted: [],
       materialsConsumed: [],
       xpGained: 0,
       goldSpent: 0,
+      error: `No crafting recipe with id: ${recipeId}`,
     }
   }
 
@@ -160,6 +167,7 @@ export function craft(recipeId: string, inventory: Record<string, number>): Craf
       materialsConsumed: [],
       xpGained: 0,
       goldSpent: 0,
+      error: `Missing materials for recipe: ${recipe.name}`,
     }
   }
 
