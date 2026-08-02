@@ -14,6 +14,9 @@ export interface CampaignStage {
   xpReward: number
   goldReward: number
   element: CombatElement
+  wavesInStage: number
+  isBoss: boolean
+  scale: number
 }
 
 export interface CampaignRegion {
@@ -42,7 +45,14 @@ export function getCampaignStage(id: number): CampaignStage {
     xpReward: Math.floor(pattern.xpReward * scale),
     goldReward: Math.floor(pattern.goldReward * scale),
     element: (['nature', 'fire', 'ice', 'shadow', 'holy'] as CombatElement[])[(region - 1) % 5],
+    wavesInStage: 4,
+    isBoss: safeId % 5 === 0 || stage === STAGES_PER_REGION,
+    scale,
   }
+}
+
+export function getStageConfig(stageId: number): CampaignStage {
+  return getCampaignStage(stageId)
 }
 
 export function getCampaignRegions(): CampaignRegion[] {

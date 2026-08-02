@@ -49,7 +49,7 @@ import {
   type StatKey,
 } from '../lib/progression'
 import { generateItemIconDataUrl } from '../lib/sprite-gen'
-import { getCampaignRegions } from '../lib/campaign'
+import { getCampaignRegions, getStageConfig } from '../lib/campaign'
 import { getFrontierEncounter, type FrontierPolicy } from '../lib/frontier'
 import { solveOfflineProgress, type OfflineSummary } from '../lib/offline'
 
@@ -211,6 +211,8 @@ export default function BattleGame() {
 
   useEffect(() => {
     loadMetaState()
+    selectedCampaignStage = Math.max(1, metaState.campaign.highestUnlockedStage)
+    activeStageId = selectedCampaignStage
     if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches && !metaState.settings.reducedMotion) {
       metaState.settings.reducedMotion = true
     }
@@ -253,7 +255,7 @@ export default function BattleGame() {
       {overlay && (
         <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-lg border border-gray-800 bg-black/80 p-3 font-mono text-xs text-green-400 shadow-lg backdrop-blur-sm">
           <div className="font-bold text-cyan-300">
-            {endlessMode && overlay.wave > MAX_WAVE
+            {endlessMode
               ? overlay.frontierLabel
               : `Wave ${overlay.wave}/${MAX_WAVE}`}
           </div>
@@ -524,7 +526,7 @@ export default function BattleGame() {
 }
 
 function buildOverlay() {
-  const frontier = endlessMode && currentWave > MAX_WAVE ? getFrontierEncounter(metaState.frontier.runSeed, currentWave - MAX_WAVE) : null
+  const frontier = endlessMode ? getFrontierEncounter(metaState.frontier.runSeed, metaState.frontier.currentDepth) : null
   return {
     phase: battlePhase,
     wave: currentWave,
@@ -534,7 +536,7 @@ function buildOverlay() {
     aliveMonsters: monsters.filter((m) => m.hp > 0).length,
     totalMonsters: monsters.length,
     result: battleResult,
-    frontierModifiers: endlessMode && currentWave > MAX_WAVE ? frontierEncounter.modifiers : getFrontierModifiers(currentWave),
+    frontierModifiers: endlessMode ? frontierEncounter.modifiers : getFrontierModifiers(currentWave),
     frontierLabel: frontier ? `Frontier D${frontier.depth} · ${frontier.biome} · ${frontier.template} · ${frontier.modifiers.join(', ')}` : '',
   }
 }
@@ -560,6 +562,8 @@ let speedMultiplier = 1
 let endlessMode = false
 let hitStop = false
 let selectedCampaignStage = 1
+let activeStageId = 1
+let waveInStage = 0
 let frontierEncounter = getFrontierEncounter('run-1', 1)
 let reducedMotion = false
 
@@ -575,6 +579,7 @@ function resetGameState() {
   battleLog = []
   battleResult = null
   currentWave = 0
+  waveInStage = 0
   turnNumber = 0
   battlePhase = 'wave-intro'
   heroSprites = new Map()
@@ -720,6 +725,10 @@ function getMonsterElement(monsterId: string): CombatElement {
   return 'physical'
 }
 
+function activeFrontierModifiers(): FrontierModifier[] {
+  return endlessMode ? frontierEncounter.modifiers : getFrontierModifiers(currentWave)
+}
+
 function createMonster(wave: number, monsterId: string, isBoss: boolean): CombatMonster {
   const diff = DIFFICULTIES[difficultyKey] ?? DIFFICULTIES.normal
   const effectiveWave = getEffectiveWave(wave)
@@ -734,23 +743,24 @@ function createMonster(wave: number, monsterId: string, isBoss: boolean): Combat
   const bossMult = isBoss && bossConfig ? Math.max(bossConfig.hpMultiplier, bossConfig.atkMultiplier) : 1.0
 
   const endlessMult = getEndlessMultiplier(wave)
-  const modifiers = wave > MAX_WAVE && endlessMode ? frontierEncounter.modifiers : getFrontierModifiers(wave)
+  const modifiers = endlessMode ? frontierEncounter.modifiers : getFrontierModifiers(wave)
   const frenzied = modifiers.includes('Frenzied')
   const armored = modifiers.includes('Armored')
   const storm = modifiers.includes('ElementalStorm')
   const element = storm
     ? (['fire', 'ice', 'nature', 'shadow', 'holy'] as CombatElement[])[wave % 5]
     : getMonsterElement(monsterId)
+  const campaignScale = !endlessMode ? getStageConfig(activeStageId).scale : frontierEncounter.scaling.hp
 
   return {
     id: `monster-${monsterId}-${wave}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     name: isBoss ? monsterId.toUpperCase() : monsterId,
     wave,
     isBoss,
-    hp: Math.floor(baseHp * hpScale * bossMult * diff.hpMultiplier * endlessMult),
-    maxHp: Math.floor(baseHp * hpScale * bossMult * diff.hpMultiplier * endlessMult),
-    atk: Math.floor(baseAtk * atkScale * (isBoss && bossConfig ? bossConfig.atkMultiplier : 1) * diff.atkMultiplier * endlessMult * (frenzied ? 1.35 : 1)),
-    def: Math.floor(baseDef * (isBoss && bossConfig ? bossConfig.defMultiplier : 1) * diff.defMultiplier * endlessMult * (armored ? 1.45 : frenzied ? 0.75 : 1)),
+    hp: Math.floor(baseHp * hpScale * bossMult * diff.hpMultiplier * endlessMult * campaignScale),
+    maxHp: Math.floor(baseHp * hpScale * bossMult * diff.hpMultiplier * endlessMult * campaignScale),
+    atk: Math.floor(baseAtk * atkScale * (isBoss && bossConfig ? bossConfig.atkMultiplier : 1) * diff.atkMultiplier * endlessMult * (frenzied ? 1.35 : 1) * Math.sqrt(campaignScale)),
+    def: Math.floor(baseDef * (isBoss && bossConfig ? bossConfig.defMultiplier : 1) * diff.defMultiplier * endlessMult * (armored ? 1.45 : frenzied ? 0.75 : 1) * Math.sqrt(campaignScale)),
     spd: Math.max(1, 3 + effectiveWave - (isBoss ? 0 : 1)),
     defending: false,
     buffs: [],
@@ -791,17 +801,21 @@ function positionCombatants(scene: Phaser.Scene, width: number, height: number) 
 
 function startWaveIntro() {
   if (battleResult) return
+  waveInStage++
   currentWave++
   battlePhase = 'wave-intro'
   turnNumber++
 
   const effectiveWave = getEffectiveWave(currentWave)
-  if (endlessMode && currentWave > MAX_WAVE) frontierEncounter = getFrontierEncounter(metaState.frontier.runSeed, currentWave - MAX_WAVE)
+  const stageConfig = !endlessMode ? getStageConfig(activeStageId) : null
+  if (endlessMode && waveInStage === 1) {
+    frontierEncounter = getFrontierEncounter(metaState.frontier.runSeed, metaState.frontier.currentDepth)
+  }
   const bossConfig = BOSS_CONFIGS[effectiveWave]
-  const campaignStage = !endlessMode && selectedCampaignStage > MAX_WAVE ? getCampaignRegions().flatMap((region) => region.stages).find((stage) => stage.id === selectedCampaignStage) : undefined
+  const campaignStage = stageConfig
   const waveConfig = WAVE_CONFIGS.find((w) => w.waveNumber === effectiveWave)
 
-  const label = endlessMode && currentWave > MAX_WAVE
+  const label = endlessMode
     ? `Frontier D${frontierEncounter.depth} · ${frontierEncounter.biome} · ${frontierEncounter.template} · ${frontierEncounter.modifiers.join(', ')}`
     : `Wave ${currentWave}/${MAX_WAVE}`
 
@@ -815,13 +829,18 @@ function startWaveIntro() {
   playSfx('wave-start')
 
   if (sceneRef) {
-    const modifiers = getFrontierModifiers(currentWave)
+    const modifiers = endlessMode ? frontierEncounter.modifiers : getFrontierModifiers(currentWave)
     const tint = modifiers.includes('Darkness') ? 0x555577 : modifiers.includes('ElementalStorm') ? 0x6644aa : 0xffffff
     sceneRef.children.list.filter((child): child is Phaser.GameObjects.TileSprite => child instanceof Phaser.GameObjects.TileSprite).forEach((layer) => layer.setTint(tint))
     if (campaignStage) {
-      monsters = campaignStage.monsterIds.map((monsterId) => createMonster(currentWave, monsterId, false))
+      const ids = campaignStage.isBoss && waveInStage === campaignStage.wavesInStage
+        ? ['boss-warden']
+        : campaignStage.monsterIds
+      monsters = ids.map((monsterId) => createMonster(currentWave, monsterId, monsterId.startsWith('boss-')))
+    } else if (endlessMode && waveInStage >= 4) {
+      monsters = [createMonster(currentWave, 'boss-warden', true)]
     } else {
-      spawnWaveMonsters(currentWave > MAX_WAVE && endlessMode ? undefined : waveConfig, currentWave > MAX_WAVE && endlessMode ? undefined : bossConfig)
+      spawnWaveMonsters(endlessMode ? undefined : waveConfig, endlessMode ? undefined : bossConfig)
     }
     positionCombatants(sceneRef, sceneRef.cameras.main.width, sceneRef.cameras.main.height)
     updateSprites(sceneRef)
@@ -835,10 +854,8 @@ function startWaveIntro() {
 function spawnWaveMonsters(waveConfig?: WaveConfig, bossConfig?: BossConfig) {
   monsters = []
 
-  if (endlessMode && currentWave > MAX_WAVE) {
-    frontierEncounter = getFrontierEncounter(metaState.frontier.runSeed, currentWave - MAX_WAVE)
+  if (endlessMode) {
     frontierEncounter.monsterIds.forEach((mid) => monsters.push(createMonster(currentWave, mid, false)))
-    if (frontierEncounter.checkpoint) monsters.push(createMonster(currentWave, 'boss-warden', true))
     return
   }
   if (bossConfig) {
@@ -1068,7 +1085,7 @@ function computeDamage(source: CombatElement, target: CombatElement, base: numbe
 }
 
 function applyFrontierAccuracy(damage: number): number {
-  return getFrontierModifiers(currentWave).includes('Darkness') && Math.random() < 0.25
+  return activeFrontierModifiers().includes('Darkness') && Math.random() < 0.25
     ? Math.floor(damage * 0.5)
     : damage
 }
@@ -1220,7 +1237,7 @@ function applyAction(action: BattleAction) {
           showFloatingText(hero.x, hero.y - 72, 'ULTIMATE!', '#ffdd44')
           addLog(`${hero.name} casts PARTY REGEN!`, 'buff')
           playSfx('ultimate')
-          heroes.filter((member) => member.hp > 0).forEach((member) => {
+          heroes.filter((member) => member.hp > 0 && member.hp < member.maxHp).forEach((member) => {
             playAttackAnim(sprite, member, 'heal', 0, action.healing)
           })
           return
@@ -1455,7 +1472,7 @@ function killMonster(monster: CombatMonster) {
   if (sprite) {
     playEntityAnim(sprite, sprite.texture.key, 'death')
     createDeathBurst(monster.x, monster.y, 0xffaa44)
-    if (getFrontierModifiers(currentWave).includes('Volatile')) {
+    if (activeFrontierModifiers().includes('Volatile')) {
       heroes.filter((hero) => hero.hp > 0 && Math.abs(hero.x - monster.x) < 220).forEach((hero) => {
         applyDamageToTarget(hero.id, Math.max(1, Math.floor(monster.atk * 0.35)), 0, 'damage')
       })
@@ -1516,7 +1533,7 @@ function showFloatingText(x: number, y: number, text: string, color: string, fon
 }
 
 function processBuffs() {
-  if (getFrontierModifiers(currentWave).includes('Regenerating')) {
+  if (activeFrontierModifiers().includes('Regenerating')) {
     monsters.filter((monster) => monster.hp > 0).forEach((monster) => {
       const healing = Math.max(1, Math.floor(monster.maxHp * 0.04))
       applyDamageToTarget(monster.id, 0, healing, 'heal')
@@ -1560,15 +1577,9 @@ function endWave() {
   livingHeroes.forEach((hero) => addXpToHero(hero.id, xpPerHero))
   const goldReward = bossConfig?.goldReward ?? waveConfig?.goldReward ?? 0
   addGold(Math.floor(goldReward))
-  const drops = rollLoot(currentWave, difficultyKey, Boolean(bossConfig))
+  const drops = rollLoot(currentWave, difficultyKey, Boolean(bossConfig) || waveInStage >= 4)
   addItems(drops)
   saveMetaState()
-  if (!endlessMode) {
-    metaState.campaign.completedStages = Array.from(new Set([...metaState.campaign.completedStages, currentWave]))
-    metaState.campaign.highestUnlockedStage = Math.max(metaState.campaign.highestUnlockedStage, currentWave + 1)
-    if (currentWave >= 120) metaState.campaign.campaignCompleted = true
-    saveMetaState()
-  }
   notifyStateUpdate()
   if (drops.length > 0) addLog(`Loot found: ${drops.map((item) => item.name).join(', ')}`, 'wave-end')
   addLog(`Rewards: +${xpReward} XP each, +${Math.floor(goldReward)} gold`, 'wave-end')
@@ -1580,32 +1591,38 @@ function endWave() {
     addLog(`BOSS defeated! +${bossConfig.xpReward} XP, +${bossConfig.goldReward} gold`, 'wave-end')
   }
 
-  const campaignTargetReached = !endlessMode && currentWave >= selectedCampaignStage
-  if (campaignTargetReached) {
+  const stageComplete = endlessMode
+    ? waveInStage >= 4
+    : waveInStage >= getStageConfig(activeStageId).wavesInStage
+  if (stageComplete && !endlessMode) {
+    metaState.campaign.completedStages = Array.from(new Set([...metaState.campaign.completedStages, activeStageId]))
+    metaState.campaign.highestUnlockedStage = Math.max(metaState.campaign.highestUnlockedStage, activeStageId + 1)
+    if (activeStageId >= 120) metaState.campaign.campaignCompleted = true
+    saveMetaState()
     battlePhase = 'complete'
     battleResult = 'victory'
-    addLog('VICTORY! All waves conquered!', 'wave-end')
+    addLog(`Stage ${activeStageId} complete!`, 'wave-end')
     notifyStateUpdate()
     return
   }
+  if (stageComplete && endlessMode) {
+    metaState.frontier.currentDepth += 1
+    metaState.frontier.bestDepth = Math.max(metaState.frontier.bestDepth, metaState.frontier.currentDepth - 1)
+    waveInStage = 0
+    currentWave = 0
+    saveMetaState()
+    addLog(`Frontier depth ${metaState.frontier.currentDepth - 1} complete!`, 'wave-end')
+  }
 
   battlePhase = 'wave-complete'
-  if (endlessMode && currentWave >= MAX_WAVE && currentWave % MAX_WAVE === 0) {
-    addLog(`Frontier checkpoint D${currentWave} reached. Heat reset.`, 'wave-end')
+  if (endlessMode && metaState.frontier.currentDepth % 10 === 0 && waveInStage >= 4) {
+    addLog(`Frontier checkpoint D${metaState.frontier.currentDepth} reached.`, 'wave-end')
   }
 
   scheduleNextTurn()
 }
 
 function handleWaveComplete() {
-  const campaignTargetReached = !endlessMode && currentWave >= selectedCampaignStage
-  if (campaignTargetReached) {
-    battlePhase = 'complete'
-    battleResult = 'victory'
-    addLog('VICTORY! All waves conquered!', 'wave-end')
-    notifyStateUpdate()
-    return
-  }
   startWaveIntro()
 }
 
@@ -1643,7 +1660,7 @@ function updateScene(this: Phaser.Scene, _time: number, delta: number) {
 function restartBattle() {
   if (!sceneRef) return
   resetGameState()
-  if (!endlessMode) currentWave = Math.max(0, selectedCampaignStage - 1)
+  activeStageId = selectedCampaignStage
   const w = sceneRef.cameras.main.width
   const h = sceneRef.cameras.main.height
   spawnHeroParty(sceneRef)
