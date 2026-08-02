@@ -1,3 +1,6 @@
+import { findById } from './collection'
+import type { Rarity } from './rarity'
+
 export type CraftingResult = 'success' | 'partial' | 'failure' | 'insufficient-materials'
 
 export interface CraftingRecipe {
@@ -8,7 +11,7 @@ export interface CraftingRecipe {
   materials: CraftingMaterial[]
   xpReward: number
   goldCost: number
-  rarity: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Cosmic'
+  rarity: Rarity
 }
 
 export interface CraftingMaterial {
@@ -132,7 +135,7 @@ export const CRAFTING_RECIPES: CraftingRecipe[] = [
 ]
 
 export function getRecipeById(id: string): CraftingRecipe | undefined {
-  return CRAFTING_RECIPES.find((recipe) => recipe.id === id)
+  return findById(CRAFTING_RECIPES, id)
 }
 
 export function canCraft(recipe: CraftingRecipe, inventory: Record<string, number>): boolean {

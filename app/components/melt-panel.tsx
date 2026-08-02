@@ -2,32 +2,16 @@
 
 import { useState } from 'react'
 
+import { RARITY_COLORS, RARITY_MULTIPLIERS, type Rarity } from '../lib/rarity'
+
 interface EquipmentItem {
   id: string
   name: string
-  rarity: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Cosmic'
+  rarity: Rarity
   slot: string
   atk: number
   def: number
   hp: number
-}
-
-const RARITY_COLORS: Record<EquipmentItem['rarity'], string> = {
-  Common: 'bg-gray-500',
-  Uncommon: 'bg-green-600',
-  Rare: 'bg-blue-600',
-  Epic: 'bg-purple-600',
-  Legendary: 'bg-orange-600',
-  Cosmic: 'bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500',
-}
-
-const RARITY_MULTIPLIERS: Record<EquipmentItem['rarity'], number> = {
-  Common: 1,
-  Uncommon: 1.3,
-  Rare: 1.7,
-  Epic: 2.2,
-  Legendary: 3.0,
-  Cosmic: 5.0,
 }
 
 const SAMPLE_EQUIPMENT: EquipmentItem[] = [

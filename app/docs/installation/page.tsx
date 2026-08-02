@@ -1,10 +1,9 @@
+import { PageHeading } from '../../components/ui/panel'
+
 export default function InstallationDocs() {
   return (
     <div>
-      <h1 className="text-3xl font-bold text-white">Installation</h1>
-      <p className="mt-2 text-gray-400">
-        Get the ROBHEROES project running locally.
-      </p>
+      <PageHeading title="Installation" description="Get the ROBHEROES project running locally." />
       <div className="mt-8 space-y-6">
         <section>
           <h2 className="text-xl font-semibold text-white">Prerequisites</h2>

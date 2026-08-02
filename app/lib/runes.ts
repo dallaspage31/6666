@@ -1,3 +1,6 @@
+import { findById, filterBy } from './collection'
+import { getRarityMultiplier, type Rarity } from './rarity'
+
 export type RuneElement = 'fire' | 'water' | 'earth' | 'wind' | 'light' | 'shadow' | 'cosmic'
 
 export type RuneSlot = 'offensive' | 'defensive' | 'growth' | 'utility'
@@ -7,7 +10,7 @@ export interface Rune {
   name: string
   element: RuneElement
   slot: RuneSlot
-  rarity: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Cosmic'
+  rarity: Rarity
   statBonus: { atk: number; def: number; hp: number; spd: number }
   effect: string
   effectValue: number
@@ -168,25 +171,17 @@ export const RUNE_DATABASE: Rune[] = [
 ]
 
 export function getRuneById(id: string): Rune | undefined {
-  return RUNE_DATABASE.find((rune) => rune.id === id)
+  return findById(RUNE_DATABASE, id)
 }
 
 export function getRunesBySlot(slot: RuneSlot): Rune[] {
-  return RUNE_DATABASE.filter((rune) => rune.slot === slot)
+  return filterBy(RUNE_DATABASE, 'slot', slot)
 }
 
 export function getRunesByElement(element: RuneElement): Rune[] {
-  return RUNE_DATABASE.filter((rune) => rune.element === element)
+  return filterBy(RUNE_DATABASE, 'element', element)
 }
 
-export function getRuneMultiplier(rarity: Rune['rarity']): number {
-  const multipliers: Record<Rune['rarity'], number> = {
-    Common: 1,
-    Uncommon: 1.3,
-    Rare: 1.7,
-    Epic: 2.2,
-    Legendary: 3.0,
-    Cosmic: 5.0,
-  }
-  return multipliers[rarity]
+export function getRuneMultiplier(rarity: Rarity): number {
+  return getRarityMultiplier(rarity)
 }

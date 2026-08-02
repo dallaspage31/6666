@@ -2,9 +2,12 @@
 
 import { useState } from 'react'
 
+import { RARITY_BADGE_COLORS, RARITY_BORDER_COLORS, type Rarity } from '../lib/rarity'
+import { StatBar } from './ui/stat-bar'
+
 interface EquipmentArtworkProps {
   name: string
-  rarity: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Cosmic'
+  rarity: Rarity
   slot: string
   atk?: number
   def?: number
@@ -12,16 +15,12 @@ interface EquipmentArtworkProps {
   icon?: string
 }
 
-const RARITY_BORDERS: Record<EquipmentArtworkProps['rarity'], string> = {
-  Common: 'border-gray-500',
-  Uncommon: 'border-green-500',
-  Rare: 'border-blue-500',
-  Epic: 'border-purple-500',
-  Legendary: 'border-orange-500',
-  Cosmic: 'border-transparent bg-gradient-to-br from-pink-500/30 via-purple-500/30 to-cyan-500/30',
+const RARITY_BORDERS: Record<Rarity, string> = {
+  ...RARITY_BORDER_COLORS,
+  Cosmic: `${RARITY_BORDER_COLORS.Cosmic} bg-gradient-to-br from-pink-500/30 via-purple-500/30 to-cyan-500/30`,
 }
 
-const RARITY_GLOWS: Record<EquipmentArtworkProps['rarity'], string> = {
+const RARITY_GLOWS: Record<Rarity, string> = {
   Common: '',
   Uncommon: 'shadow-green-500/20',
   Rare: 'shadow-blue-500/20',
@@ -63,19 +62,7 @@ export function EquipmentArtwork({
       onMouseLeave={() => setHovered(false)}
     >
       <div className="absolute top-3 right-3">
-        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-          rarity === 'Common'
-            ? 'bg-gray-700 text-gray-300'
-            : rarity === 'Uncommon'
-            ? 'bg-green-700 text-green-200'
-            : rarity === 'Rare'
-            ? 'bg-blue-700 text-blue-200'
-            : rarity === 'Epic'
-            ? 'bg-purple-700 text-purple-200'
-            : rarity === 'Legendary'
-            ? 'bg-orange-700 text-orange-200'
-            : 'bg-gradient-to-r from-pink-600 to-cyan-600 text-white'
-        }`}>
+        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${RARITY_BADGE_COLORS[rarity]}`}>
           {rarity}
         </span>
       </div>
@@ -88,42 +75,9 @@ export function EquipmentArtwork({
 
       {(atk > 0 || def > 0 || hp > 0) && (
         <div className="space-y-2 mt-4">
-          {atk > 0 && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-orange-400 font-semibold w-8">ATK</span>
-              <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-orange-500 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(atk / 50 * 100, 100)}%` }}
-                />
-              </div>
-              <span className="text-orange-400 font-mono text-xs w-8 text-right">+{atk}</span>
-            </div>
-          )}
-          {def > 0 && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-blue-400 font-semibold w-8">DEF</span>
-              <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(def / 50 * 100, 100)}%` }}
-                />
-              </div>
-              <span className="text-blue-400 font-mono text-xs w-8 text-right">+{def}</span>
-            </div>
-          )}
-          {hp > 0 && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-green-400 font-semibold w-8">HP</span>
-              <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-green-500 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(hp / 100 * 100, 100)}%` }}
-                />
-              </div>
-              <span className="text-green-400 font-mono text-xs w-8 text-right">+{hp}</span>
-            </div>
-          )}
+          {atk > 0 && <StatBar kind="atk" value={atk} />}
+          {def > 0 && <StatBar kind="def" value={def} />}
+          {hp > 0 && <StatBar kind="hp" value={hp} />}
         </div>
       )}
 

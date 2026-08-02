@@ -13,6 +13,8 @@ const recentPlayers = [
   { id: 5, name: 'GlitchX', level: 15, wallet: '8sB3...6a2G', lastActive: '24m ago' },
 ]
 
+const PLAYER_COLUMNS = ['Player', 'Level', 'Wallet', 'Last Active']
+
 export default function AdminDashboard() {
   return (
     <div>
@@ -53,18 +55,14 @@ export default function AdminDashboard() {
           <table className="min-w-full divide-y divide-gray-800">
             <thead className="bg-gray-800/50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
-                  Player
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
-                  Level
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
-                  Wallet
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
-                  Last Active
-                </th>
+                {PLAYER_COLUMNS.map((column) => (
+                  <th
+                    key={column}
+                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-400"
+                  >
+                    {column}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
