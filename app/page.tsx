@@ -32,6 +32,7 @@ import {
   CRAFTING_RECIPES,
   type GemType,
   type EngravingType,
+  type MaterialType,
 } from '@/lib/game-data/crafting'
 import {
   RUNES,
@@ -185,9 +186,9 @@ const PET_DATA = [
 ]
 
 const HERO_CHEST_PRICES = {
-  Mythic: 1.5,
-  Astral: 3,
-  Cosmic: 4.5,
+  Mythic: 5,
+  Astral: 15,
+  Cosmic: 50,
 }
 
 export default function Page() {
@@ -524,8 +525,8 @@ export default function Page() {
     const remainingItems = inventory.slice(9)
     const newItem = {
       id: `synth-${Date.now()}`,
-      name: `Upgraded ${consumedItems[0].slot}`,
-      slot: consumedItems[0].slot,
+      name: `Upgraded ${selectedCubeSlot}`,
+      slot: selectedCubeSlot,
       rarity: newRarity,
       atk: Math.floor(consumedItems[0].atk * 1.5),
       def: Math.floor(consumedItems[0].def * 1.5),
@@ -551,11 +552,11 @@ export default function Page() {
     const remainingItems = inventory.slice(9)
     const roll = Math.random()
     let reward: string
-    if (roll < 0.6) {
+    if (roll < 0.65) {
       reward = 'equipment'
     } else if (roll < 0.8) {
       reward = 'material'
-    } else if (roll < 0.92) {
+    } else if (roll < 0.93) {
       reward = 'gem'
     } else {
       reward = 'engraving'
@@ -579,7 +580,7 @@ export default function Page() {
     const newItem = {
       id: `recycle-${Date.now()}`,
       name: rewardName,
-      slot: reward === 'equipment' ? slot : 'Material',
+      slot: reward === 'equipment' ? slot : 'Bracer',
       rarity: reward === 'equipment' ? rarity : 'Common',
       atk: reward === 'equipment' ? Math.floor(Math.random() * 20) + 1 : 0,
       def: reward === 'equipment' ? Math.floor(Math.random() * 20) + 1 : 0,
@@ -592,9 +593,11 @@ export default function Page() {
   }
 
   const handleCraft = () => {
-    const material = inventory.find((i) => i.name === 'Iron Ore')
+    const material = inventory.find((i) =>
+      ALL_MATERIALS.includes(i.name as MaterialType),
+    )
     if (!material) {
-      toast.error('Need Iron Ore to craft')
+      toast.error('Need a material to craft')
       return
     }
     const recipe =
@@ -602,7 +605,7 @@ export default function Page() {
     const newItem = {
       id: `craft-${Date.now()}`,
       name: recipe.name,
-      slot: recipe.resultSlot as ItemSlot,
+      slot: selectedCubeSlot,
       rarity: recipe.resultRarity,
       atk: Math.floor(Math.random() * 30) + 5,
       def: Math.floor(Math.random() * 20) + 2,
@@ -617,7 +620,10 @@ export default function Page() {
           engraving: null as string | null,
         })),
     }
-    game.setInventory([...inventory, newItem])
+    game.setInventory([
+      ...inventory.filter((i) => i.id !== material.id),
+      newItem,
+    ])
     toast.success(`Crafted ${recipe.name} for ${selectedCubeSlot}!`)
   }
 
@@ -636,7 +642,7 @@ export default function Page() {
     const materialItem = {
       id: `melt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: material,
-      slot: 'Material',
+      slot: 'Bracer' as ItemSlot,
       rarity: 'Common',
       atk: 0,
       def: 0,
@@ -671,13 +677,14 @@ export default function Page() {
       toast.error('No rune points available')
       return
     }
+    const rune = RUNES.find((r) => r.id === runeId)
+    if (!rune) return
+    const maxTier = BRANCH_TIERS[rune.branch as RuneBranch]
     const existing = game.runes.find((r) => r.id === runeId)
-    if (existing && existing.points >= 5) {
+    if (existing && existing.points >= maxTier) {
       toast.error('Rune is already at max level')
       return
     }
-    const rune = RUNES.find((r) => r.id === runeId)
-    if (!rune) return
     if (existing) {
       game.setRunes(
         game.runes.map((r) =>
@@ -696,7 +703,7 @@ export default function Page() {
         },
       ])
     }
-    game.setRunePoints(game.runePoints - 1)
+    game.setRunePoints(game.runePoints - rune.cost)
     toast.success(`Spent rune point on ${rune.name}`)
   }
 
