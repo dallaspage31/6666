@@ -1,118 +1,251 @@
-export interface LevelConfig {
-  level: number
-  xpRequired: number
-  hpBonus: number
-  atkBonus: number
-  defBonus: number
-  spdBonus: number
+import type { CombatElement } from './combat-types'
+import { HERO_RARITY_CONFIGS, type HeroRarity } from './hero-rarity'
+import { scaleRune, type Rune, type RuneStat } from './runes'
+
+export type ItemSlot = 'weapon' | 'armor' | 'ring' | 'artifact'
+export type StatKey = 'hp' | 'atk' | 'def' | 'spd'
+export type AffixKind = 'percent-atk' | 'crit' | 'lifesteal' | 'hp-regen' | 'element-dmg'
+
+export interface ItemAffix {
+  kind: AffixKind
+  label: string
+  value: number
 }
 
-export interface PrestigeRank {
-  rank: number
+export interface Item {
+  id: string
   name: string
-  minLevel: number
-  xpMultiplier: number
-  unlocks: string[]
+  slot: ItemSlot
+  rarity: HeroRarity
+  element?: CombatElement
+  baseStats: Record<StatKey, number>
+  affixes: ItemAffix[]
+  sockets: number
+  socketedRunes: Array<Rune | null>
+  equippedByHeroId: string | null
+  iconDataUrl?: string
 }
 
-export const XP_TABLE: LevelConfig[] = [
-  { level: 1, xpRequired: 0, hpBonus: 0, atkBonus: 0, defBonus: 0, spdBonus: 0 },
-  { level: 2, xpRequired: 100, hpBonus: 5, atkBonus: 1, defBonus: 1, spdBonus: 0 },
-  { level: 3, xpRequired: 250, hpBonus: 10, atkBonus: 2, defBonus: 1, spdBonus: 1 },
-  { level: 4, xpRequired: 500, hpBonus: 15, atkBonus: 2, defBonus: 2, spdBonus: 1 },
-  { level: 5, xpRequired: 800, hpBonus: 20, atkBonus: 3, defBonus: 2, spdBonus: 1 },
-  { level: 6, xpRequired: 1200, hpBonus: 25, atkBonus: 3, defBonus: 3, spdBonus: 2 },
-  { level: 7, xpRequired: 1700, hpBonus: 30, atkBonus: 4, defBonus: 3, spdBonus: 2 },
-  { level: 8, xpRequired: 2300, hpBonus: 35, atkBonus: 4, defBonus: 4, spdBonus: 2 },
-  { level: 9, xpRequired: 3000, hpBonus: 40, atkBonus: 5, defBonus: 4, spdBonus: 3 },
-  { level: 10, xpRequired: 4000, hpBonus: 50, atkBonus: 6, defBonus: 5, spdBonus: 3 },
-  { level: 11, xpRequired: 5200, hpBonus: 55, atkBonus: 7, defBonus: 5, spdBonus: 3 },
-  { level: 12, xpRequired: 6600, hpBonus: 60, atkBonus: 7, defBonus: 6, spdBonus: 4 },
-  { level: 13, xpRequired: 8200, hpBonus: 65, atkBonus: 8, defBonus: 6, spdBonus: 4 },
-  { level: 14, xpRequired: 10000, hpBonus: 70, atkBonus: 9, defBonus: 7, spdBonus: 4 },
-  { level: 15, xpRequired: 12000, hpBonus: 80, atkBonus: 10, defBonus: 7, spdBonus: 5 },
-  { level: 16, xpRequired: 14500, hpBonus: 85, atkBonus: 11, defBonus: 8, spdBonus: 5 },
-  { level: 17, xpRequired: 17500, hpBonus: 90, atkBonus: 12, defBonus: 8, spdBonus: 5 },
-  { level: 18, xpRequired: 21000, hpBonus: 95, atkBonus: 13, defBonus: 9, spdBonus: 6 },
-  { level: 19, xpRequired: 25000, hpBonus: 100, atkBonus: 14, defBonus: 9, spdBonus: 6 },
-  { level: 20, xpRequired: 30000, hpBonus: 120, atkBonus: 15, defBonus: 10, spdBonus: 7 },
-]
+export interface HeroProgression {
+  heroId: string
+  level: number
+  currentXp: number
+  xpToNext: number
+  statPoints: number
+  bonusStats: Record<StatKey, number>
+}
 
-export const PRESTIGE_RANKS: PrestigeRank[] = [
-  {
-    rank: 1,
-    name: 'Novice',
-    minLevel: 1,
-    xpMultiplier: 1.0,
-    unlocks: ['basic-combat', 'starter-hero'],
-  },
-  {
-    rank: 2,
-    name: 'Apprentice',
-    minLevel: 5,
-    xpMultiplier: 1.1,
-    unlocks: ['rune-slots-1', 'pet-slot-1'],
-  },
-  {
-    rank: 3,
-    name: 'Warrior',
-    minLevel: 10,
-    xpMultiplier: 1.25,
-    unlocks: ['hard-difficulty', 'crafting-tier-2'],
-  },
-  {
-    rank: 4,
-    name: 'Veteran',
-    minLevel: 15,
-    xpMultiplier: 1.5,
-    unlocks: ['rune-slots-2', 'pet-slot-2', 'epic-crafting'],
-  },
-  {
-    rank: 5,
-    name: 'Champion',
-    minLevel: 20,
-    xpMultiplier: 2.0,
-    unlocks: ['rune-slots-3', 'pet-slot-3', 'legendary-crafting', 'nightmare-difficulty'],
-  },
-]
+export interface MetaState {
+  gold: number
+  forgeTokens: string
+  forgeRemainder: number
+  essence: number
+  heroes: Record<string, HeroProgression>
+  inventory: Item[]
+  equipped: Record<string, Partial<Record<ItemSlot, string>>>
+}
 
-export function getLevelConfig(level: number): LevelConfig {
-  const config = XP_TABLE.find((c) => c.level === level)
-  if (config) return config
-  const last = XP_TABLE[XP_TABLE.length - 1]
-  const diff = level - last.level
+export interface EffectiveHeroStats {
+  hp: number
+  atk: number
+  def: number
+  spd: number
+}
+
+export const META_SAVE_KEY = 'robheroes.save.v1'
+export const HERO_NAMES = ['Ironclad', 'Blazefang', 'Windsong', 'Frostweaver', 'Longshot']
+
+export function xpToNextLevel(level: number): number {
+  return Math.floor(80 * Math.pow(level, 1.5))
+}
+
+function newHero(heroId: string): HeroProgression {
+  return { heroId, level: 1, currentXp: 0, xpToNext: xpToNextLevel(1), statPoints: 0, bonusStats: { hp: 0, atk: 0, def: 0, spd: 0 } }
+}
+
+function defaultMetaState(): MetaState {
   return {
-    level,
-    xpRequired: last.xpRequired + diff * 3000,
-    hpBonus: last.hpBonus + diff * 10,
-    atkBonus: last.atkBonus + diff * 1,
-    defBonus: last.defBonus + diff * 1,
-    spdBonus: last.spdBonus + diff * 1,
+    gold: 0,
+    forgeTokens: '0',
+    forgeRemainder: 0,
+    essence: 0,
+    heroes: Object.fromEntries(HERO_NAMES.map((name) => [`hero-${name}`, newHero(`hero-${name}`)])),
+    inventory: [],
+    equipped: {},
   }
 }
 
-export function getXpForLevel(level: number): number {
-  const config = XP_TABLE.find((c) => c.level === level)
-  if (config) return config.xpRequired
-  const last = XP_TABLE[XP_TABLE.length - 1]
-  const diff = level - last.level
-  return last.xpRequired + diff * 3000
-}
+export let metaState: MetaState = defaultMetaState()
 
-export function getPrestigeRank(level: number): PrestigeRank {
-  let matched = PRESTIGE_RANKS[0]
-  for (const rank of PRESTIGE_RANKS) {
-    if (level >= rank.minLevel) {
-      matched = rank
-    }
+function normalize(state: MetaState): MetaState {
+  const defaults = defaultMetaState()
+  const heroes = { ...defaults.heroes, ...state.heroes }
+  Object.values(heroes).forEach((hero) => {
+    hero.xpToNext = xpToNextLevel(hero.level)
+    hero.bonusStats = { ...hero.bonusStats }
+    hero.bonusStats.hp ??= 0
+    hero.bonusStats.atk ??= 0
+    hero.bonusStats.def ??= 0
+    hero.bonusStats.spd ??= 0
+  })
+  return {
+    ...defaults,
+    ...state,
+    forgeTokens: String(state.forgeTokens ?? '0'),
+    forgeRemainder: Number(state.forgeRemainder ?? 0),
+    heroes,
+    inventory: (state.inventory ?? []).map((item) => ({ ...item, socketedRunes: item.socketedRunes ?? Array(item.sockets).fill(null) })),
+    equipped: state.equipped ?? {},
   }
-  return matched
 }
 
-export function calculateXpProgress(currentLevel: number, currentXp: number): { progress: number; nextLevelXp: number } {
-  const currentConfig = getLevelConfig(currentLevel)
-  const nextLevelConfig = getLevelConfig(currentLevel + 1)
-  const range = nextLevelConfig.xpRequired - currentConfig.xpRequired
-  const progress = range > 0 ? Math.min(currentXp / range, 1) : 1
-  return { progress, nextLevelXp: nextLevelConfig.xpRequired }
+export function replaceMetaState(next: MetaState): void {
+  metaState = normalize(next)
+}
+
+export function loadMetaState(): MetaState {
+  if (typeof window === 'undefined') return metaState
+  try {
+    const saved = window.localStorage.getItem(META_SAVE_KEY)
+    if (saved) replaceMetaState(JSON.parse(saved) as MetaState)
+  } catch {
+    replaceMetaState(defaultMetaState())
+  }
+  return metaState
+}
+
+export function saveMetaState(): void {
+  if (typeof window !== 'undefined') window.localStorage.setItem(META_SAVE_KEY, JSON.stringify(metaState))
+}
+
+export function addGold(amount: number): void {
+  metaState.gold += Math.max(0, Math.floor(amount))
+}
+
+export function addEssence(amount: number): void {
+  metaState.essence += Math.max(0, Math.floor(amount))
+}
+
+export function mintForgeTokens(): number {
+  const total = metaState.gold + metaState.forgeRemainder
+  const minted = Math.floor(total / 10000)
+  metaState.forgeTokens = (BigInt(metaState.forgeTokens) + BigInt(minted)).toString()
+  metaState.forgeRemainder = total % 10000
+  metaState.gold = 0
+  return minted
+}
+
+export function addXpToHero(heroId: string, amount: number): number {
+  const hero = metaState.heroes[heroId]
+  if (!hero) return 0
+  hero.currentXp += Math.max(0, Math.floor(amount))
+  let levels = 0
+  while (hero.currentXp >= hero.xpToNext) {
+    hero.currentXp -= hero.xpToNext
+    hero.level += 1
+    hero.statPoints += 3
+    hero.xpToNext = xpToNextLevel(hero.level)
+    levels += 1
+  }
+  return levels
+}
+
+export function allocateStatPoint(heroId: string, stat: StatKey): boolean {
+  const hero = metaState.heroes[heroId]
+  if (!hero || hero.statPoints <= 0) return false
+  hero.statPoints -= 1
+  hero.bonusStats[stat] += 1
+  return true
+}
+
+export function computeHeroStats(heroId: string, rarity: HeroRarity): EffectiveHeroStats {
+  const progression = metaState.heroes[heroId] ?? newHero(heroId)
+  const base = HERO_RARITY_CONFIGS[rarity]
+  const growth = Math.max(0, progression.level - 1)
+  const stats: EffectiveHeroStats = {
+    hp: Math.floor(base.baseHp * (1 + growth * 0.15)) + progression.bonusStats.hp,
+    atk: Math.floor(base.baseAtk * (1 + growth * 0.1)) + progression.bonusStats.atk,
+    def: Math.floor(base.baseDef * (1 + growth * 0.08)) + progression.bonusStats.def,
+    spd: Math.floor(base.baseSpd * (1 + growth * 0.05)) + progression.bonusStats.spd,
+  }
+  const equipped = metaState.equipped[heroId] ?? {}
+  Object.values(equipped).forEach((itemId) => {
+    const item = metaState.inventory.find((candidate) => candidate.id === itemId)
+    if (!item) return
+    addStats(stats, item.baseStats)
+    item.affixes.forEach((affix) => {
+      if (affix.kind === 'percent-atk') stats.atk += Math.floor(stats.atk * affix.value / 100)
+      if (affix.kind === 'hp-regen') stats.hp += Math.floor(affix.value)
+    })
+    item.socketedRunes.forEach((rune) => {
+      if (!rune) return
+      const scaled = scaleRune(rune, progression.level)
+      stats[scaled.stat] += scaled.value
+    })
+  })
+  return stats
+}
+
+function addStats(stats: EffectiveHeroStats, values: Record<StatKey, number>): void {
+  stats.hp += values.hp
+  stats.atk += values.atk
+  stats.def += values.def
+  stats.spd += values.spd
+}
+
+export function addItems(items: Item[]): void {
+  metaState.inventory.push(...items)
+}
+
+export function equipItem(itemId: string, heroId: string): boolean {
+  const item = metaState.inventory.find((candidate) => candidate.id === itemId)
+  if (!item) return false
+  const previous = metaState.equipped[heroId]?.[item.slot]
+  if (previous) {
+    const old = metaState.inventory.find((candidate) => candidate.id === previous)
+    if (old) old.equippedByHeroId = null
+  }
+  metaState.equipped[heroId] = { ...(metaState.equipped[heroId] ?? {}), [item.slot]: item.id }
+  item.equippedByHeroId = heroId
+  return true
+}
+
+export function socketRune(itemId: string, rune: Rune, socketIndex: number): boolean {
+  const item = metaState.inventory.find((candidate) => candidate.id === itemId)
+  if (!item || socketIndex < 0 || socketIndex >= item.sockets || item.socketedRunes[socketIndex]) return false
+  item.socketedRunes[socketIndex] = rune
+  return true
+}
+
+export function unsocketRune(itemId: string, socketIndex: number): Rune | null {
+  const item = metaState.inventory.find((candidate) => candidate.id === itemId)
+  if (!item || socketIndex < 0 || socketIndex >= item.sockets) return null
+  const rune = item.socketedRunes[socketIndex]
+  item.socketedRunes[socketIndex] = null
+  return rune
+}
+
+export function salvageItem(itemId: string): number {
+  const index = metaState.inventory.findIndex((item) => item.id === itemId)
+  if (index < 0) return 0
+  const item = metaState.inventory[index]
+  if (item.equippedByHeroId) delete metaState.equipped[item.equippedByHeroId][item.slot]
+  const rarityIndex = Object.keys(HERO_RARITY_CONFIGS).indexOf(item.rarity)
+  const essence = 2 + rarityIndex * 4
+  addEssence(essence)
+  addGold(5 + rarityIndex * 10)
+  metaState.inventory.splice(index, 1)
+  return essence
+}
+
+export function salvageBelowRarity(threshold: HeroRarity): number {
+  const rarities = Object.keys(HERO_RARITY_CONFIGS) as HeroRarity[]
+  const thresholdIndex = rarities.indexOf(threshold)
+  const ids = metaState.inventory.filter((item) => rarities.indexOf(item.rarity) < thresholdIndex).map((item) => item.id)
+  ids.forEach(salvageItem)
+  return ids.length
+}
+
+export function getRuneStatKey(stat: RuneStat): StatKey {
+  return stat
 }

@@ -776,3 +776,62 @@ export function generateBarTexture(
   }
   return canvas
 }
+
+export function generateItemIconDataUrl(
+  document: Document,
+  slot: 'weapon' | 'armor' | 'ring' | 'artifact',
+  rarity: string,
+  element = '#66ddff'
+): string {
+  const canvas = document.createElement('canvas')
+  canvas.width = 48
+  canvas.height = 48
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return ''
+  const rarityColors: Record<string, string> = {
+    Common: '#9ca3af',
+    Uncommon: '#4ade80',
+    Rare: '#60a5fa',
+    Epic: '#c084fc',
+    Legendary: '#fb923c',
+    Cosmic: '#f0abfc',
+  }
+  ctx.fillStyle = '#101827'
+  ctx.fillRect(2, 2, 44, 44)
+  ctx.strokeStyle = rarityColors[rarity] ?? '#9ca3af'
+  ctx.lineWidth = 3
+  ctx.strokeRect(3, 3, 42, 42)
+  ctx.fillStyle = element
+  ctx.strokeStyle = '#e5e7eb'
+  ctx.lineWidth = 2
+  if (slot === 'weapon') {
+    ctx.rotate(-0.65)
+    ctx.fillRect(21, 8, 6, 30)
+    ctx.strokeRect(20, 7, 8, 31)
+    ctx.rotate(0.65)
+  } else if (slot === 'armor') {
+    ctx.beginPath()
+    ctx.moveTo(14, 10)
+    ctx.lineTo(34, 10)
+    ctx.lineTo(38, 38)
+    ctx.lineTo(10, 38)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+  } else if (slot === 'ring') {
+    ctx.beginPath()
+    ctx.arc(24, 24, 12, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.fillRect(21, 7, 6, 6)
+  } else {
+    ctx.beginPath()
+    ctx.moveTo(24, 7)
+    ctx.lineTo(38, 24)
+    ctx.lineTo(24, 41)
+    ctx.lineTo(10, 24)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+  }
+  return canvas.toDataURL('image/png')
+}

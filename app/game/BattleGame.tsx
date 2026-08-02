@@ -30,6 +30,32 @@ import {
   type EffectName,
 } from '../lib/game-assets'
 import { isSfxMuted, playSfx, setSfxMuted } from '../lib/sfx'
+import { rollLoot } from '../lib/loot'
+import {
+  addGold,
+  addItems,
+  addXpToHero,
+  allocateStatPoint,
+  computeHeroStats,
+  equipItem,
+  loadMetaState,
+  metaState,
+  mintForgeTokens,
+  saveMetaState,
+  salvageBelowRarity,
+  salvageItem,
+  type StatKey,
+} from '../lib/progression'
+import { generateItemIconDataUrl } from '../lib/sprite-gen'
+
+const RARITY_BORDER_COLORS: Record<HeroRarity, string> = {
+  Common: '#9ca3af',
+  Uncommon: '#4ade80',
+  Rare: '#60a5fa',
+  Epic: '#c084fc',
+  Legendary: '#fb923c',
+  Cosmic: '#f0abfc',
+}
 
 interface CombatHero {
   id: string
@@ -123,6 +149,10 @@ export default function BattleGame() {
   const [speed, setSpeed] = useState(1)
   const [endless, setEndless] = useState(false)
   const [muted, setMuted] = useState(isSfxMuted())
+  const [, setMetaVersion] = useState(0)
+  const [metaTab, setMetaTab] = useState<'heroes' | 'inventory' | 'forge'>('heroes')
+  const [metaOpen, setMetaOpen] = useState(false)
+  const [selectedHeroId, setSelectedHeroId] = useState('hero-Ironclad')
 
   const createGame = useCallback(() => {
     if (!containerRef.current || gameRef.current) return
@@ -165,6 +195,8 @@ export default function BattleGame() {
   }, [])
 
   useEffect(() => {
+    loadMetaState()
+    setMetaVersion((version) => version + 1)
     stateUpdateCallback = () => setOverlay(buildOverlay())
     const cleanup = createGame()
     return () => {
@@ -172,6 +204,11 @@ export default function BattleGame() {
       if (cleanup) cleanup()
     }
   }, [createGame])
+
+  const refreshMeta = () => {
+    saveMetaState()
+    setMetaVersion((version) => version + 1)
+  }
 
   const handleRestart = () => {
     difficultyKey = difficulty
@@ -265,6 +302,101 @@ export default function BattleGame() {
             Restart
           </button>
         </div>
+      </div>
+
+      <div className="pointer-events-auto absolute bottom-3 left-3 z-10 w-[min(440px,calc(100%-1.5rem))] rounded-lg border border-gray-800 bg-black/85 text-xs text-gray-200 shadow-lg backdrop-blur-sm">
+        <button
+          onClick={() => setMetaOpen((open) => !open)}
+          className="flex w-full items-center justify-between px-3 py-2 font-semibold text-cyan-300"
+        >
+          <span>Progression &amp; Inventory</span>
+          <span>{metaOpen ? '−' : '+'}</span>
+        </button>
+        {metaOpen && (
+          <div className="border-t border-gray-800 p-3">
+            <div className="mb-3 flex gap-1">
+              {(['heroes', 'inventory', 'forge'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setMetaTab(tab)}
+                  className={`rounded px-2 py-1 capitalize ${metaTab === tab ? 'bg-cyan-600 text-black' : 'bg-gray-800 text-gray-300'}`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+            {metaTab === 'heroes' && (
+              <div className="max-h-56 space-y-2 overflow-y-auto">
+                {Object.values(metaState.heroes).map((progression) => {
+                  const heroName = progression.heroId.replace('hero-', '')
+                  const heroParty = heroes.find((hero) => hero.id === progression.heroId)
+                  const stats = computeHeroStats(progression.heroId, heroParty?.rarity ?? 'Common')
+                  return (
+                    <div key={progression.heroId} className="rounded border border-gray-700 p-2">
+                      <button className="font-semibold text-yellow-300" onClick={() => setSelectedHeroId(progression.heroId)}>
+                        {heroName} · Lv {progression.level}
+                      </button>
+                      <div className="mt-1 h-1.5 overflow-hidden rounded bg-gray-700">
+                        <div className="h-full bg-green-400" style={{ width: `${Math.min(100, progression.currentXp / progression.xpToNext * 100)}%` }} />
+                      </div>
+                      <div className="mt-1 text-gray-400">XP {progression.currentXp}/{progression.xpToNext} · Points {progression.statPoints}</div>
+                      <div className="flex gap-2 text-cyan-200">HP {stats.hp} · ATK {stats.atk} · DEF {stats.def} · SPD {stats.spd}</div>
+                      <div className="mt-1 flex gap-1">
+                        {(['hp', 'atk', 'def', 'spd'] as StatKey[]).map((stat) => (
+                          <button key={stat} onClick={() => { if (allocateStatPoint(progression.heroId, stat)) refreshMeta() }} className="rounded bg-gray-800 px-1.5 py-0.5 text-[10px]">
+                            +{stat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {metaTab === 'inventory' && (
+              <div>
+                <div className="mb-2 text-gray-400">Selected hero: {selectedHeroId.replace('hero-', '')}</div>
+                <div className="grid max-h-52 grid-cols-2 gap-2 overflow-y-auto">
+                  {metaState.inventory.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded border p-2"
+                      style={{ borderColor: RARITY_BORDER_COLORS[item.rarity] }}
+                      title={`${item.name}\n${item.rarity} ${item.slot}\n${item.affixes.map((affix) => `${affix.label}: ${affix.value}`).join('\n')}\nSockets: ${item.socketedRunes.filter(Boolean).length}/${item.sockets}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <img
+                          alt=""
+                          className="h-8 w-8"
+                          src={item.iconDataUrl ?? (typeof document !== 'undefined' ? generateItemIconDataUrl(document, item.slot, item.rarity, item.element === 'fire' ? '#ff8855' : '#66ddff') : '')}
+                        />
+                        <div className="min-w-0">
+                          <div className="truncate font-semibold text-yellow-300">{item.name}</div>
+                          <div className="text-gray-400">{item.rarity} · {item.slot}</div>
+                        </div>
+                      </div>
+                      <div className="mt-1 text-gray-300">+{item.baseStats.hp} HP · +{item.baseStats.atk} ATK · +{item.baseStats.def} DEF · +{item.baseStats.spd} SPD</div>
+                      <div className="mt-1 flex gap-1">
+                        <button onClick={() => { if (equipItem(item.id, selectedHeroId)) refreshMeta() }} className="rounded bg-cyan-700 px-1.5 py-0.5">Equip</button>
+                        <button onClick={() => { salvageItem(item.id); refreshMeta() }} className="rounded bg-red-900 px-1.5 py-0.5">Salvage</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => { salvageBelowRarity('Rare'); refreshMeta() }} className="mt-2 rounded bg-gray-800 px-2 py-1 text-gray-300">Salvage below Rare</button>
+              </div>
+            )}
+            {metaTab === 'forge' && (
+              <div className="space-y-2">
+                <div className="flex justify-between"><span>Gold</span><span className="text-yellow-300">{metaState.gold}</span></div>
+                <div className="flex justify-between"><span>Forge Tokens</span><span className="text-fuchsia-300">{metaState.forgeTokens}</span></div>
+                <div className="flex justify-between"><span>Essence</span><span className="text-cyan-300">{metaState.essence}</span></div>
+                <div className="text-gray-400">Mint ratio: 10,000 gold = 1 token · remainder {metaState.forgeRemainder}</div>
+                <button onClick={() => { mintForgeTokens(); refreshMeta() }} className="rounded bg-fuchsia-700 px-2 py-1">Mint Forge Tokens</button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {overlay?.result && (
@@ -442,17 +574,20 @@ function createHero(
 ): CombatHero {
   const config = HERO_RARITY_CONFIGS[rarity]
   const textureKey = getHeroTextureKey(name)
+  const progression = metaState.heroes[`hero-${name}`]
+  const effectiveLevel = progression?.level ?? level
+  const stats = computeHeroStats(`hero-${name}`, rarity)
   return {
     id: `hero-${name}`,
     name,
     role,
     rarity,
-    level,
-    hp: Math.floor(config.baseHp * (1 + (level - 1) * 0.15)),
-    maxHp: Math.floor(config.baseHp * (1 + (level - 1) * 0.15)),
-    atk: Math.floor(config.baseAtk * (1 + (level - 1) * 0.1)),
-    def: Math.floor(config.baseDef * (1 + (level - 1) * 0.08)),
-    spd: Math.floor(config.baseSpd * (1 + (level - 1) * 0.05)),
+    level: effectiveLevel,
+    hp: stats.hp,
+    maxHp: stats.hp,
+    atk: stats.atk,
+    def: stats.def,
+    spd: stats.spd,
     defending: false,
     specialCooldown: 0,
     specialMaxCooldown: 3,
@@ -573,7 +708,7 @@ function startWaveIntro() {
   } else {
     addLog(`${label}`, 'wave-start')
   }
-  playSfx(bossConfig ? 'wave-start' : 'wave-start')
+  playSfx('wave-start')
 
   if (sceneRef) {
     const modifiers = getFrontierModifiers(currentWave)
@@ -837,7 +972,7 @@ function determineHeroAction(hero: CombatHero, targets: CombatMonster[]): Battle
   const lowest = aliveTargets.reduce((prev, curr) => (curr.hp < prev.hp ? curr : prev))
   if (hero.ultimateCharge >= hero.ultimateMaxCharge) {
     hero.ultimateCharge = 0
-    const base = hero.role === 'support' ? hero.atk * 1.4 : hero.atk * 3.2
+    const base = hero.atk * 3.2
     if (hero.role === 'support') {
       return { combatantId: hero.id, kind: 'hero', action: 'heal', targetId: hero.id, damage: 0, healing: Math.floor(hero.atk * 1.8), isUltimate: true }
     }
@@ -1303,6 +1438,20 @@ function endWave() {
   const effectiveWave = getEffectiveWave(currentWave)
   const waveConfig = WAVE_CONFIGS.find((w) => w.waveNumber === effectiveWave)
   const bossConfig = BOSS_CONFIGS[effectiveWave]
+  const diff = DIFFICULTIES[difficultyKey] ?? DIFFICULTIES.normal
+  const baseXp = bossConfig?.xpReward ?? waveConfig?.xpReward ?? 0
+  const xpReward = Math.floor(baseXp * diff.xpMultiplier)
+  const livingHeroes = heroes.filter((hero) => hero.hp > 0)
+  const xpPerHero = livingHeroes.length > 0 ? Math.floor(xpReward / livingHeroes.length) : 0
+  livingHeroes.forEach((hero) => addXpToHero(hero.id, xpPerHero))
+  const goldReward = bossConfig?.goldReward ?? waveConfig?.goldReward ?? 0
+  addGold(Math.floor(goldReward))
+  const drops = rollLoot(currentWave, difficultyKey, Boolean(bossConfig))
+  addItems(drops)
+  saveMetaState()
+  notifyStateUpdate()
+  if (drops.length > 0) addLog(`Loot found: ${drops.map((item) => item.name).join(', ')}`, 'wave-end')
+  addLog(`Rewards: +${xpReward} XP each, +${Math.floor(goldReward)} gold`, 'wave-end')
 
   if (waveConfig) {
     addLog(`Wave ${currentWave} complete! +${waveConfig.xpReward} XP, +${waveConfig.goldReward} gold`, 'wave-end')
