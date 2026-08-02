@@ -1,3 +1,5 @@
+import { ChainConfigError } from './errors'
+
 export type ChainId = 'robinhood-devnet' | 'robinhood-mainnet' | 'solana-devnet' | 'solana-mainnet-beta'
 
 export interface ChainConfig {
@@ -46,8 +48,16 @@ export const ROBINHOOD_CHAINS: Record<ChainId, ChainConfig> = {
 
 export const DEFAULT_CHAIN: ChainId = 'robinhood-devnet'
 
+export function isChainId(value: string): value is ChainId {
+  return Object.prototype.hasOwnProperty.call(ROBINHOOD_CHAINS, value)
+}
+
 export function getChainConfig(chainId: ChainId): ChainConfig {
-  return ROBINHOOD_CHAINS[chainId]
+  const config = ROBINHOOD_CHAINS[chainId]
+  if (!config) {
+    throw new ChainConfigError(`Unknown chain id: ${chainId}`, chainId)
+  }
+  return config
 }
 
 export function isRobinhoodChain(chainId: ChainId): boolean {

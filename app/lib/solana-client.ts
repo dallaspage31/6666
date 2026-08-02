@@ -4,6 +4,7 @@ import type { Signature } from '@solana/keys'
 import type { Base64EncodedWireTransaction } from '@solana/transactions'
 
 import { getChainConfig, DEFAULT_CHAIN, ChainId } from './robinhood-chain'
+import { SolanaConnectionError, TransactionError, getErrorMessage } from './errors'
 
 export interface SolanaClientOptions {
   chainId?: ChainId
@@ -28,29 +29,50 @@ export class SolanaClient {
     return this.chainId
   }
 
+  private async request<T>(operation: string, run: () => Promise<T>): Promise<T> {
+    try {
+      return await run()
+    } catch (error) {
+      throw new SolanaConnectionError(
+        `${operation} failed on ${this.chainId}: ${getErrorMessage(error)}`,
+        { cause: error },
+      )
+    }
+  }
+
   async getBalance(address: Address | string) {
     const addr = typeof address === 'string' ? (address as Address) : address
-    return this.rpc.getBalance(addr).send()
+    return this.request('getBalance', () => this.rpc.getBalance(addr).send())
   }
 
   async getSlot() {
-    return this.rpc.getSlot().send()
+    return this.request('getSlot', () => this.rpc.getSlot().send())
   }
 
   async getBlockTime(slot: bigint) {
-    return this.rpc.getBlockTime(slot).send()
+    return this.request('getBlockTime', () => this.rpc.getBlockTime(slot).send())
   }
 
   async getLatestBlockhash() {
-    return this.rpc.getLatestBlockhash().send()
+    return this.request('getLatestBlockhash', () => this.rpc.getLatestBlockhash().send())
   }
 
   async sendTransaction(transaction: Base64EncodedWireTransaction) {
-    return this.rpc.sendTransaction(transaction).send()
+    try {
+      return await this.rpc.sendTransaction(transaction).send()
+    } catch (error) {
+      throw new TransactionError(
+        `Failed to send transaction on ${this.chainId}: ${getErrorMessage(error)}`,
+        undefined,
+        { cause: error },
+      )
+    }
   }
 
   async getSignatureStatuses(signatures: readonly Signature[]) {
-    return this.rpc.getSignatureStatuses(signatures).send()
+    return this.request('getSignatureStatuses', () =>
+      this.rpc.getSignatureStatuses(signatures).send(),
+    )
   }
 }
 

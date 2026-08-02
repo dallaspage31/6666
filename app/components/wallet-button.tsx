@@ -3,6 +3,8 @@
 import { useConnection, useWallet } from '@solana/react'
 import { useState } from 'react'
 
+import { WalletError, getErrorMessage } from '../lib/errors'
+
 export function WalletButton() {
   const { publicKey, connected, connecting, disconnect, connect } = useWallet()
   const { connection } = useConnection()
@@ -12,8 +14,29 @@ export function WalletButton() {
     setError(null)
     try {
       await connect()
-    } catch {
-      setError('Failed to connect to wallet')
+    } catch (err) {
+      const walletError = new WalletError(
+        `Failed to connect to wallet: ${getErrorMessage(err)}`,
+        publicKey?.toString(),
+        { cause: err },
+      )
+      console.error(walletError)
+      setError(walletError.message)
+    }
+  }
+
+  const handleDisconnect = async () => {
+    setError(null)
+    try {
+      await disconnect()
+    } catch (err) {
+      const walletError = new WalletError(
+        `Failed to disconnect wallet: ${getErrorMessage(err)}`,
+        publicKey?.toString(),
+        { cause: err },
+      )
+      console.error(walletError)
+      setError(walletError.message)
     }
   }
 
@@ -24,11 +47,12 @@ export function WalletButton() {
           {publicKey.toString().slice(0, 4)}...{publicKey.toString().slice(-4)}
         </span>
         <button
-          onClick={disconnect}
+          onClick={handleDisconnect}
           className="px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors text-gray-300"
         >
           Disconnect
         </button>
+        {error && <span className="text-xs text-red-400">{error}</span>}
       </div>
     )
   }

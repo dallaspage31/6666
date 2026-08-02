@@ -1,12 +1,22 @@
-import { getChainConfig } from './robinhood-chain'
+import { ExplorerError } from './errors'
+import { DEFAULT_CHAIN, getChainConfig, isChainId } from './robinhood-chain'
+import type { ChainConfig } from './robinhood-chain'
 
 export interface ExplorerLink {
   url: string
   label: string
 }
 
+function resolveConfig(chainId?: string): ChainConfig {
+  if (chainId === undefined) return getChainConfig(DEFAULT_CHAIN)
+  if (!isChainId(chainId)) {
+    throw new ExplorerError(`Cannot build explorer link for unknown chain id: ${chainId}`)
+  }
+  return getChainConfig(chainId)
+}
+
 export function transactionUrl(signature: string, chainId?: string): ExplorerLink {
-  const config = chainId ? getChainConfig(chainId as never) : getChainConfig('robinhood-devnet')
+  const config = resolveConfig(chainId)
   return {
     url: `${config.explorerUrl}/tx/${signature}`,
     label: 'View Transaction',
@@ -14,7 +24,7 @@ export function transactionUrl(signature: string, chainId?: string): ExplorerLin
 }
 
 export function addressUrl(address: string, chainId?: string): ExplorerLink {
-  const config = chainId ? getChainConfig(chainId as never) : getChainConfig('robinhood-devnet')
+  const config = resolveConfig(chainId)
   return {
     url: `${config.explorerUrl}/address/${address}`,
     label: 'View Address',
@@ -22,7 +32,7 @@ export function addressUrl(address: string, chainId?: string): ExplorerLink {
 }
 
 export function blockUrl(slot: number, chainId?: string): ExplorerLink {
-  const config = chainId ? getChainConfig(chainId as never) : getChainConfig('robinhood-devnet')
+  const config = resolveConfig(chainId)
   return {
     url: `${config.explorerUrl}/block/${slot}`,
     label: 'View Block',

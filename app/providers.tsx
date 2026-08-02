@@ -11,10 +11,30 @@ interface ThemeProviderState {
 
 const ThemeContext = createContext<ThemeProviderState | undefined>(undefined)
 
+const THEME_STORAGE_KEY = 'robheroes-theme'
+
+function readStoredTheme(): Theme | null {
+  try {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY)
+    return stored === 'light' || stored === 'dark' ? stored : null
+  } catch (error) {
+    console.warn('Could not read the stored theme, falling back to system preference', error)
+    return null
+  }
+}
+
+function storeTheme(theme: Theme) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme)
+  } catch (error) {
+    console.warn('Could not persist the selected theme', error)
+  }
+}
+
 function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'dark'
-  const stored = localStorage.getItem('robheroes-theme') as Theme | null
-  if (stored === 'light' || stored === 'dark') return stored
+  const stored = readStoredTheme()
+  if (stored) return stored
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
 }
 
@@ -48,7 +68,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = () => {
     setTheme((prev) => {
       const next = prev === 'dark' ? 'light' : 'dark'
-      localStorage.setItem('robheroes-theme', next)
+      storeTheme(next)
       return next
     })
   }
