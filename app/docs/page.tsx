@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 
+import { PageHeading } from '../components/ui/panel'
+
 const docs = [
   {
     title: 'Installation',
@@ -23,10 +25,7 @@ const docs = [
 export default function DocsPage() {
   return (
     <div>
-      <h1 className="text-3xl font-bold text-white">Documentation</h1>
-      <p className="mt-2 text-gray-400">
-        Guides and reference material for ROBHEROES.
-      </p>
+      <PageHeading title="Documentation" description="Guides and reference material for ROBHEROES." />
       <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {docs.map((doc) => (
           <Link

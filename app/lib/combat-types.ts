@@ -1,3 +1,5 @@
+import type { Rarity } from './rarity'
+
 export type CombatRole = 'tank' | 'damage' | 'support' | 'controller'
 
 export type CombatAction = 'attack' | 'defend' | 'special' | 'pet-ability' | 'rune-buff'
@@ -20,7 +22,7 @@ export interface Combatant {
 
 export interface HeroCombatant extends Combatant {
   heroId: string
-  rarity: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Cosmic'
+  rarity: Rarity
   level: number
   equipment: string[]
   runes: string[]

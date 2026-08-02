@@ -13,12 +13,13 @@ import type {
   CombatResult,
 } from '@/lib/combat-types'
 import { HERO_RARITY_CONFIGS } from '@/lib/hero-rarity'
+import type { Rarity } from '@/lib/rarity'
 
 interface HeroState {
   id: string
   name: string
   role: 'tank' | 'damage' | 'support' | 'controller'
-  rarity: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Cosmic'
+  rarity: Rarity
   hp: number
   maxHp: number
   atk: number

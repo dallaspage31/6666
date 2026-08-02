@@ -1,4 +1,13 @@
-export type HeroRarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Cosmic'
+import {
+  RARITIES,
+  RARITY_BORDER_COLORS,
+  RARITY_COLORS,
+  RARITY_MULTIPLIERS,
+  RARITY_TEXT_COLORS,
+  type Rarity,
+} from './rarity'
+
+export type HeroRarity = Rarity
 
 export interface HeroRarityConfig {
   rarity: HeroRarity
@@ -13,82 +22,31 @@ export interface HeroRarityConfig {
   borderColor: string
 }
 
-export const HERO_RARITY_CONFIGS: Record<HeroRarity, HeroRarityConfig> = {
-  Common: {
-    rarity: 'Common',
-    baseHp: 100,
-    baseAtk: 10,
-    baseDef: 5,
-    baseSpd: 3,
-    xpMultiplier: 1.0,
-    dropRate: 0.40,
-    color: 'bg-gray-500',
-    textColor: 'text-gray-300',
-    borderColor: 'border-gray-500',
-  },
-  Uncommon: {
-    rarity: 'Uncommon',
-    baseHp: 120,
-    baseAtk: 13,
-    baseDef: 7,
-    baseSpd: 4,
-    xpMultiplier: 1.3,
-    dropRate: 0.25,
-    color: 'bg-green-600',
-    textColor: 'text-green-200',
-    borderColor: 'border-green-500',
-  },
-  Rare: {
-    rarity: 'Rare',
-    baseHp: 150,
-    baseAtk: 18,
-    baseDef: 10,
-    baseSpd: 5,
-    xpMultiplier: 1.7,
-    dropRate: 0.15,
-    color: 'bg-blue-600',
-    textColor: 'text-blue-200',
-    borderColor: 'border-blue-500',
-  },
-  Epic: {
-    rarity: 'Epic',
-    baseHp: 200,
-    baseAtk: 25,
-    baseDef: 15,
-    baseSpd: 6,
-    xpMultiplier: 2.2,
-    dropRate: 0.08,
-    color: 'bg-purple-600',
-    textColor: 'text-purple-200',
-    borderColor: 'border-purple-500',
-  },
-  Legendary: {
-    rarity: 'Legendary',
-    baseHp: 300,
-    baseAtk: 35,
-    baseDef: 20,
-    baseSpd: 7,
-    xpMultiplier: 3.0,
-    dropRate: 0.04,
-    color: 'bg-orange-600',
-    textColor: 'text-orange-200',
-    borderColor: 'border-orange-500',
-  },
-  Cosmic: {
-    rarity: 'Cosmic',
-    baseHp: 500,
-    baseAtk: 50,
-    baseDef: 30,
-    baseSpd: 10,
-    xpMultiplier: 5.0,
-    dropRate: 0.01,
-    color: 'bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500',
-    textColor: 'text-white',
-    borderColor: 'border-transparent',
-  },
+function baseConfig(rarity: HeroRarity): HeroRarityConfig {
+  return {
+    rarity,
+    baseHp: 0,
+    baseAtk: 0,
+    baseDef: 0,
+    baseSpd: 0,
+    dropRate: 0,
+    xpMultiplier: RARITY_MULTIPLIERS[rarity],
+    color: RARITY_COLORS[rarity],
+    textColor: RARITY_TEXT_COLORS[rarity],
+    borderColor: RARITY_BORDER_COLORS[rarity],
+  }
 }
 
-export const HERO_RARITIES: HeroRarity[] = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Cosmic']
+export const HERO_RARITY_CONFIGS: Record<HeroRarity, HeroRarityConfig> = {
+  Common: { ...baseConfig('Common'), baseHp: 100, baseAtk: 10, baseDef: 5, baseSpd: 3, dropRate: 0.40 },
+  Uncommon: { ...baseConfig('Uncommon'), baseHp: 120, baseAtk: 13, baseDef: 7, baseSpd: 4, dropRate: 0.25 },
+  Rare: { ...baseConfig('Rare'), baseHp: 150, baseAtk: 18, baseDef: 10, baseSpd: 5, dropRate: 0.15 },
+  Epic: { ...baseConfig('Epic'), baseHp: 200, baseAtk: 25, baseDef: 15, baseSpd: 6, dropRate: 0.08 },
+  Legendary: { ...baseConfig('Legendary'), baseHp: 300, baseAtk: 35, baseDef: 20, baseSpd: 7, dropRate: 0.04 },
+  Cosmic: { ...baseConfig('Cosmic'), baseHp: 500, baseAtk: 50, baseDef: 30, baseSpd: 10, dropRate: 0.01 },
+}
+
+export const HERO_RARITIES: HeroRarity[] = RARITIES
 
 export function getRarityConfig(rarity: HeroRarity): HeroRarityConfig {
   return HERO_RARITY_CONFIGS[rarity]

@@ -92,11 +92,7 @@ export function getLevelConfig(level: number): LevelConfig {
 }
 
 export function getXpForLevel(level: number): number {
-  const config = XP_TABLE.find((c) => c.level === level)
-  if (config) return config.xpRequired
-  const last = XP_TABLE[XP_TABLE.length - 1]
-  const diff = level - last.level
-  return last.xpRequired + diff * 3000
+  return getLevelConfig(level).xpRequired
 }
 
 export function getPrestigeRank(level: number): PrestigeRank {

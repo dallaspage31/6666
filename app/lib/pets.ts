@@ -1,3 +1,6 @@
+import { findById } from './collection'
+import type { Rarity } from './rarity'
+
 export type PetAbilityType = 'passive' | 'active' | 'trigger'
 
 export interface PetAbility {
@@ -13,7 +16,7 @@ export interface PetAbility {
 export interface Pet {
   id: string
   name: string
-  rarity: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Cosmic'
+  rarity: Rarity
   level: number
   xp: number
   ability: PetAbility
@@ -142,7 +145,7 @@ export const PET_DATABASE: Pet[] = [
 ]
 
 export function getPetById(id: string): Pet | undefined {
-  return PET_DATABASE.find((pet) => pet.id === id)
+  return findById(PET_DATABASE, id)
 }
 
 export function getPetCombatBonus(pet: Pet): PetCombatBonus {

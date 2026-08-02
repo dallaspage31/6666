@@ -3,6 +3,8 @@
 import { useConnection, useWallet } from '@solana/react'
 import { useState } from 'react'
 
+import { shortenAddress } from '../lib/explorer'
+
 export function WalletButton() {
   const { publicKey, connected, connecting, disconnect, connect } = useWallet()
   const { connection } = useConnection()
@@ -21,7 +23,7 @@ export function WalletButton() {
     return (
       <div className="flex items-center gap-3">
         <span className="text-xs font-mono text-gray-400">
-          {publicKey.toString().slice(0, 4)}...{publicKey.toString().slice(-4)}
+          {shortenAddress(publicKey.toString())}
         </span>
         <button
           onClick={disconnect}

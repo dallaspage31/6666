@@ -1,38 +1,38 @@
-import { getChainConfig } from './robinhood-chain'
+import { getChainConfig, DEFAULT_CHAIN, type ChainId } from './robinhood-chain'
 
 export interface ExplorerLink {
   url: string
   label: string
 }
 
-export function transactionUrl(signature: string, chainId?: string): ExplorerLink {
-  const config = chainId ? getChainConfig(chainId as never) : getChainConfig('robinhood-devnet')
+function explorerLink(path: string, label: string, chainId?: string): ExplorerLink {
+  const config = getChainConfig((chainId ?? DEFAULT_CHAIN) as ChainId)
   return {
-    url: `${config.explorerUrl}/tx/${signature}`,
-    label: 'View Transaction',
+    url: `${config.explorerUrl}/${path}`,
+    label,
   }
+}
+
+export function transactionUrl(signature: string, chainId?: string): ExplorerLink {
+  return explorerLink(`tx/${signature}`, 'View Transaction', chainId)
 }
 
 export function addressUrl(address: string, chainId?: string): ExplorerLink {
-  const config = chainId ? getChainConfig(chainId as never) : getChainConfig('robinhood-devnet')
-  return {
-    url: `${config.explorerUrl}/address/${address}`,
-    label: 'View Address',
-  }
+  return explorerLink(`address/${address}`, 'View Address', chainId)
 }
 
 export function blockUrl(slot: number, chainId?: string): ExplorerLink {
-  const config = chainId ? getChainConfig(chainId as never) : getChainConfig('robinhood-devnet')
-  return {
-    url: `${config.explorerUrl}/block/${slot}`,
-    label: 'View Block',
-  }
+  return explorerLink(`block/${slot}`, 'View Block', chainId)
+}
+
+export function shorten(value: string, chars: number): string {
+  return `${value.slice(0, chars)}...${value.slice(-chars)}`
 }
 
 export function shortenAddress(address: string, chars = 4): string {
-  return `${address.slice(0, chars)}...${address.slice(-chars)}`
+  return shorten(address, chars)
 }
 
 export function shortenSignature(signature: string, chars = 6): string {
-  return `${signature.slice(0, chars)}...${signature.slice(-chars)}`
+  return shorten(signature, chars)
 }
