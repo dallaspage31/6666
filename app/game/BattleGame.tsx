@@ -7,6 +7,8 @@ import {
   BOSS_CONFIGS,
   MAX_WAVE,
   DIFFICULTIES,
+  getFrontierModifiers,
+  type FrontierModifier,
   type BossConfig,
   type WaveConfig,
 } from '../lib/combat-config'
@@ -15,6 +17,7 @@ import type {
   CombatLogEntry,
   CombatResult,
   CombatRole,
+  CombatElement,
 } from '../lib/combat-types'
 import { HERO_RARITY_CONFIGS, type HeroRarity } from '../lib/hero-rarity'
 import {
@@ -26,6 +29,7 @@ import {
   getEffectKey,
   type EffectName,
 } from '../lib/game-assets'
+import { isSfxMuted, playSfx, setSfxMuted } from '../lib/sfx'
 
 interface CombatHero {
   id: string
@@ -41,6 +45,9 @@ interface CombatHero {
   defending: boolean
   specialCooldown: number
   specialMaxCooldown: number
+  ultimateCharge: number
+  ultimateMaxCharge: number
+  element: CombatElement
   buffs: Array<{ type: string; value: number; duration: number }>
   x: number
   y: number
@@ -63,6 +70,7 @@ interface CombatMonster {
   x: number
   y: number
   textureKey: string
+  element: CombatElement
 }
 
 interface CombatPet {
@@ -81,6 +89,10 @@ interface BattleAction {
   damage: number
   healing: number
   effect?: EffectName
+  isUltimate?: boolean
+  isCrit?: boolean
+  tag?: 'WEAK!' | 'RESIST'
+  targetIds?: string[]
 }
 
 interface ParallaxLayer {
@@ -105,10 +117,12 @@ export default function BattleGame() {
     aliveMonsters: number
     totalMonsters: number
     result: CombatResult | null
+    frontierModifiers: FrontierModifier[]
   } | null>(null)
   const [difficulty, setDifficulty] = useState('normal')
   const [speed, setSpeed] = useState(1)
   const [endless, setEndless] = useState(false)
+  const [muted, setMuted] = useState(isSfxMuted())
 
   const createGame = useCallback(() => {
     if (!containerRef.current || gameRef.current) return
@@ -185,6 +199,11 @@ export default function BattleGame() {
           <div>
             Monsters: {overlay.aliveMonsters}/{overlay.totalMonsters}
           </div>
+          {overlay.frontierModifiers.length > 0 && (
+            <div className="mt-1 text-fuchsia-300">
+              Modifiers: {overlay.frontierModifiers.join(' | ')}
+            </div>
+          )}
           {overlay.result && (
             <div className="mt-1 font-bold uppercase text-yellow-400">
               Result: {overlay.result}
@@ -228,6 +247,16 @@ export default function BattleGame() {
             />
             Endless Frontier
           </label>
+          <button
+            onClick={() => {
+              const next = !muted
+              setMuted(next)
+              setSfxMuted(next)
+            }}
+            className="mt-2 w-full rounded bg-gray-800 px-3 py-1.5 font-semibold text-gray-200 transition hover:bg-gray-700"
+          >
+            {muted ? 'Sound: Off' : 'Sound: On'}
+          </button>
 
           <button
             onClick={handleRestart}
@@ -276,6 +305,7 @@ function buildOverlay() {
     aliveMonsters: monsters.filter((m) => m.hp > 0).length,
     totalMonsters: monsters.length,
     result: battleResult,
+    frontierModifiers: getFrontierModifiers(currentWave),
   }
 }
 
@@ -298,6 +328,7 @@ let stateUpdateCallback: (() => void) | null = null
 let difficultyKey = 'normal'
 let speedMultiplier = 1
 let endlessMode = false
+let hitStop = false
 
 function initScene(this: Phaser.Scene) {
   sceneRef = this
@@ -318,6 +349,7 @@ function resetGameState() {
   petSprites = new Map()
   hpBars = new Map()
   parallaxLayers = []
+  hitStop = false
 }
 
 function preloadScene(this: Phaser.Scene) {
@@ -394,6 +426,7 @@ function spawnHeroParty(scene: Phaser.Scene) {
     { name: 'Blazefang', role: 'damage', rarity: 'Rare', level: 1 },
     { name: 'Windsong', role: 'support', rarity: 'Uncommon', level: 1 },
     { name: 'Frostweaver', role: 'controller', rarity: 'Epic', level: 1 },
+    { name: 'Longshot', role: 'damage', rarity: 'Legendary', level: 1 },
   ]
 
   heroes = party.map((p, i) => createHero(p.name, p.role, p.rarity, p.level, i))
@@ -423,12 +456,31 @@ function createHero(
     defending: false,
     specialCooldown: 0,
     specialMaxCooldown: 3,
+    ultimateCharge: 0,
+    ultimateMaxCharge: 5,
+    element: getHeroElement(name),
     buffs: [],
     x: 0,
     y: 0,
     textureKey,
     petKey: getPetTextureKey(index),
   }
+}
+
+function getHeroElement(name: string): CombatElement {
+  if (name === 'Blazefang') return 'shadow'
+  if (name === 'Windsong') return 'holy'
+  if (name === 'Frostweaver') return 'fire'
+  return 'physical'
+}
+
+function getMonsterElement(monsterId: string): CombatElement {
+  if (monsterId.includes('mage')) return 'fire'
+  if (monsterId.includes('shadow')) return 'shadow'
+  if (monsterId.includes('healer')) return 'holy'
+  if (monsterId.includes('scout')) return 'nature'
+  if (monsterId.includes('brute')) return 'ice'
+  return 'physical'
 }
 
 function createMonster(wave: number, monsterId: string, isBoss: boolean): CombatMonster {
@@ -445,6 +497,13 @@ function createMonster(wave: number, monsterId: string, isBoss: boolean): Combat
   const bossMult = isBoss && bossConfig ? Math.max(bossConfig.hpMultiplier, bossConfig.atkMultiplier) : 1.0
 
   const endlessMult = getEndlessMultiplier(wave)
+  const modifiers = getFrontierModifiers(wave)
+  const frenzied = modifiers.includes('Frenzied')
+  const armored = modifiers.includes('Armored')
+  const storm = modifiers.includes('ElementalStorm')
+  const element = storm
+    ? (['fire', 'ice', 'nature', 'shadow', 'holy'] as CombatElement[])[wave % 5]
+    : getMonsterElement(monsterId)
 
   return {
     id: `monster-${monsterId}-${wave}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -453,14 +512,15 @@ function createMonster(wave: number, monsterId: string, isBoss: boolean): Combat
     isBoss,
     hp: Math.floor(baseHp * hpScale * bossMult * diff.hpMultiplier * endlessMult),
     maxHp: Math.floor(baseHp * hpScale * bossMult * diff.hpMultiplier * endlessMult),
-    atk: Math.floor(baseAtk * atkScale * (isBoss && bossConfig ? bossConfig.atkMultiplier : 1) * diff.atkMultiplier * endlessMult),
-    def: Math.floor(baseDef * (isBoss && bossConfig ? bossConfig.defMultiplier : 1) * diff.defMultiplier * endlessMult),
+    atk: Math.floor(baseAtk * atkScale * (isBoss && bossConfig ? bossConfig.atkMultiplier : 1) * diff.atkMultiplier * endlessMult * (frenzied ? 1.35 : 1)),
+    def: Math.floor(baseDef * (isBoss && bossConfig ? bossConfig.defMultiplier : 1) * diff.defMultiplier * endlessMult * (armored ? 1.45 : frenzied ? 0.75 : 1)),
     spd: Math.max(1, 3 + effectiveWave - (isBoss ? 0 : 1)),
     defending: false,
     buffs: [],
     x: 0,
     y: 0,
     textureKey: getMonsterTextureKey(monsterId),
+    element,
   }
 }
 
@@ -513,8 +573,12 @@ function startWaveIntro() {
   } else {
     addLog(`${label}`, 'wave-start')
   }
+  playSfx(bossConfig ? 'wave-start' : 'wave-start')
 
   if (sceneRef) {
+    const modifiers = getFrontierModifiers(currentWave)
+    const tint = modifiers.includes('Darkness') ? 0x555577 : modifiers.includes('ElementalStorm') ? 0x6644aa : 0xffffff
+    sceneRef.children.list.filter((child): child is Phaser.GameObjects.TileSprite => child instanceof Phaser.GameObjects.TileSprite).forEach((layer) => layer.setTint(tint))
     spawnWaveMonsters(waveConfig, bossConfig)
     positionCombatants(sceneRef, sceneRef.cameras.main.width, sceneRef.cameras.main.height)
     updateSprites(sceneRef)
@@ -578,6 +642,10 @@ function updateSprites(scene: Phaser.Scene) {
     const size = monster.isBoss ? 96 : 52
     sprite.setDisplaySize(size, size)
     sprite.setFlipX(true)
+    if (monster.element === 'fire') sprite.setTint(0xff8866)
+    if (monster.element === 'ice') sprite.setTint(0x88ccff)
+    if (monster.element === 'shadow') sprite.setTint(0xaa66cc)
+    if (monster.element === 'holy') sprite.setTint(0xffffaa)
     playEntityAnim(sprite, monster.textureKey, 'idle')
     monsterSprites.set(monster.id, sprite)
 
@@ -659,7 +727,8 @@ function scheduleNextTurn() {
   if (battleResult) return
 
   const baseDelay = 900
-  const delay = Math.max(150, baseDelay / speedMultiplier)
+  const delay = Math.max(150, baseDelay / speedMultiplier) + (hitStop ? 80 : 0)
+  hitStop = false
   setTimeout(() => {
     switch (battlePhase) {
       case 'wave-intro':
@@ -716,7 +785,7 @@ function processAutoTurn() {
 
   aliveHeroes.forEach((hero) => {
     const action = determineHeroAction(hero, aliveMonsters)
-    actions.push(action)
+    actions.push(...expandActionTargets(action, aliveMonsters))
     const petAction = determinePetAction(hero, action.targetId, aliveMonsters)
     if (petAction) actions.push(petAction)
   })
@@ -732,13 +801,52 @@ function processAutoTurn() {
   scheduleNextTurn()
 }
 
+function expandActionTargets(action: BattleAction, targets: CombatMonster[]): BattleAction[] {
+  if (!action.targetIds || action.targetIds.length < 2) return [action]
+  return action.targetIds.map((targetId) => ({ ...action, targetId, targetIds: undefined }))
+}
+
+function getElementMultiplier(source: CombatElement, target: CombatElement): number {
+  if (source === 'physical' || target === 'physical') return 1
+  if ((source === 'fire' && target === 'nature') || (source === 'nature' && target === 'ice') || (source === 'ice' && target === 'fire') || (source === 'holy' && target === 'shadow') || (source === 'shadow' && target === 'holy')) return 1.5
+  if ((source === 'nature' && target === 'fire') || (source === 'ice' && target === 'nature') || (source === 'fire' && target === 'ice')) return 0.66
+  return 1
+}
+
+function computeDamage(source: CombatElement, target: CombatElement, base: number): { damage: number; tag?: 'WEAK!' | 'RESIST' } {
+  const multiplier = getElementMultiplier(source, target)
+  return { damage: Math.max(1, Math.floor(base * multiplier)), tag: multiplier > 1 ? 'WEAK!' : multiplier < 1 ? 'RESIST' : undefined }
+}
+
+function applyFrontierAccuracy(damage: number): number {
+  return getFrontierModifiers(currentWave).includes('Darkness') && Math.random() < 0.25
+    ? Math.floor(damage * 0.5)
+    : damage
+}
+
 function determineHeroAction(hero: CombatHero, targets: CombatMonster[]): BattleAction {
   hero.defending = false
   hero.specialCooldown = Math.max(0, hero.specialCooldown - 1)
+  hero.ultimateCharge = Math.min(hero.ultimateMaxCharge, hero.ultimateCharge + 1)
 
   const aliveTargets = targets.filter((t) => t.hp > 0)
   if (aliveTargets.length === 0) {
     return { combatantId: hero.id, kind: 'hero', action: 'defend', targetId: null, damage: 0, healing: 0 }
+  }
+
+  const lowest = aliveTargets.reduce((prev, curr) => (curr.hp < prev.hp ? curr : prev))
+  if (hero.ultimateCharge >= hero.ultimateMaxCharge) {
+    hero.ultimateCharge = 0
+    const base = hero.role === 'support' ? hero.atk * 1.4 : hero.atk * 3.2
+    if (hero.role === 'support') {
+      return { combatantId: hero.id, kind: 'hero', action: 'heal', targetId: hero.id, damage: 0, healing: Math.floor(hero.atk * 1.8), isUltimate: true }
+    }
+    const damage = computeDamage(hero.element, lowest.element, base)
+    return {
+      combatantId: hero.id, kind: 'hero', action: 'special', targetId: lowest.id,
+      targetIds: hero.role === 'controller' || hero.name === 'Longshot' ? aliveTargets.slice(0, hero.name === 'Longshot' ? 3 : aliveTargets.length).map((target) => target.id) : [lowest.id],
+      damage: damage.damage, healing: 0, effect: hero.name === 'Longshot' ? 'arrow' : hero.name === 'Frostweaver' ? 'fireball' : 'slash', isUltimate: true, tag: damage.tag,
+    }
   }
 
   if (hero.role === 'support' && hero.specialCooldown <= 0) {
@@ -747,7 +855,7 @@ function determineHeroAction(hero: CombatHero, targets: CombatMonster[]): Battle
       hero.specialCooldown = hero.specialMaxCooldown
       const target = healingTargets.reduce((prev, curr) => (curr.hp / curr.maxHp < prev.hp / prev.maxHp ? curr : prev))
       const heal = Math.floor(hero.atk * 0.9)
-      return { combatantId: hero.id, kind: 'hero', action: 'heal', targetId: target.id, damage: 0, healing: heal }
+      return { combatantId: hero.id, kind: 'hero', action: 'heal', targetId: target.id, damage: 0, healing: heal, tag: undefined }
     }
   }
 
@@ -755,15 +863,16 @@ function determineHeroAction(hero: CombatHero, targets: CombatMonster[]): Battle
     hero.specialCooldown = hero.specialMaxCooldown
     const target = aliveTargets.reduce((prev, curr) => (curr.hp > prev.hp ? curr : prev))
     const multiplier = hero.role === 'controller' ? 2.8 : 2.2
-    const damage = Math.max(1, Math.floor(hero.atk * multiplier - target.def * 0.4))
+    const computed = computeDamage(hero.element, target.element, applyFrontierAccuracy(hero.atk * multiplier - target.def * 0.4))
     return {
       combatantId: hero.id,
       kind: 'hero',
       action: 'special',
       targetId: target.id,
-      damage,
+      damage: computed.damage,
       healing: 0,
       effect: hero.textureKey === 'hero-Mage' ? 'fireball' : hero.textureKey === 'hero-Archer' ? 'arrow' : 'slash',
+      tag: computed.tag,
     }
   }
 
@@ -773,15 +882,18 @@ function determineHeroAction(hero: CombatHero, targets: CombatMonster[]): Battle
   }
 
   const target = aliveTargets.reduce((prev, curr) => (curr.hp < prev.hp ? curr : prev))
-  const damage = Math.max(1, hero.atk - Math.floor(target.def * 0.5))
+  const critical = hero.name === 'Blazefang' && Math.random() < 0.35
+  const computed = computeDamage(hero.element, target.element, applyFrontierAccuracy((hero.atk - Math.floor(target.def * 0.5)) * (critical ? 2 : 1)))
   return {
     combatantId: hero.id,
     kind: 'hero',
     action: 'attack',
     targetId: target.id,
-    damage,
+    damage: computed.damage,
     healing: 0,
     effect: hero.textureKey === 'hero-Mage' ? 'fireball' : hero.textureKey === 'hero-Archer' ? 'arrow' : 'slash',
+    tag: computed.tag,
+    isCrit: critical,
   }
 }
 
@@ -815,16 +927,17 @@ function determineMonsterAction(monster: CombatMonster, targets: CombatHero[]): 
   }
 
   const target = aliveTargets.reduce((prev, curr) => (curr.hp < prev.hp ? curr : prev))
-  const damage = Math.max(1, monster.atk - Math.floor(target.def * (target.defending ? 1.0 : 0.5)))
+  const computed = computeDamage(monster.element, target.element, monster.atk - Math.floor(target.def * (target.defending ? 1.0 : 0.5)))
 
   return {
     combatantId: monster.id,
     kind: 'monster',
     action: 'attack',
     targetId: target.id,
-    damage,
+    damage: computed.damage,
     healing: 0,
     effect: monster.textureKey === 'monster-archer' ? 'arrow' : isMonsterRanged(monster) ? 'fireball' : 'slash',
+    tag: computed.tag,
   }
 }
 
@@ -853,6 +966,16 @@ function applyAction(action: BattleAction) {
     if (action.action === 'heal' && action.targetId) {
       const target = heroes.find((h) => h.id === action.targetId)
       if (target) {
+        target.buffs = []
+        if (action.isUltimate) {
+          showFloatingText(hero.x, hero.y - 72, 'ULTIMATE!', '#ffdd44')
+          addLog(`${hero.name} casts PARTY REGEN!`, 'buff')
+          playSfx('ultimate')
+          heroes.filter((member) => member.hp > 0).forEach((member) => {
+            playAttackAnim(sprite, member, 'heal', 0, action.healing)
+          })
+          return
+        }
         playAttackAnim(sprite, target, 'heal', 0, action.healing)
       }
       return
@@ -861,6 +984,24 @@ function applyAction(action: BattleAction) {
     if (action.targetId && (action.action === 'attack' || action.action === 'special')) {
       const target = monsters.find((m) => m.id === action.targetId)
       if (target) {
+        if (action.isUltimate) {
+          showFloatingText(hero.x, hero.y - 72, 'ULTIMATE!', '#ffdd44')
+          addLog(`${hero.name} unleashes an ultimate!`, 'buff')
+          playSfx('ultimate')
+        } else if (action.action === 'special') {
+          showFloatingText(hero.x, hero.y - 64, 'SKILL!', '#66ddff')
+          addLog(`${hero.name} uses a skill`, 'buff')
+          playSfx('attack')
+        }
+        if (action.tag) showFloatingText(target.x, target.y - 76, action.tag, action.tag === 'WEAK!' ? '#ffdd44' : '#99aacc')
+        if (action.isCrit) {
+          showFloatingText(target.x, target.y - 92, 'CRIT!', '#ffe44d', 22)
+          playSfx('crit')
+        }
+        if (action.isUltimate || target.isBoss) {
+          sceneRef.cameras.main.shake(180, 0.008)
+          hitStop = true
+        }
         playAttackAnim(sprite, target, action.effect ?? 'slash', action.damage)
       }
     }
@@ -889,6 +1030,8 @@ function applyAction(action: BattleAction) {
     if (action.targetId) {
       const target = heroes.find((h) => h.id === action.targetId)
       if (target) {
+        if (action.tag) showFloatingText(target.x, target.y - 76, action.tag, action.tag === 'WEAK!' ? '#ffdd44' : '#99aacc')
+        if (monster.isBoss) sceneRef.cameras.main.shake(160, 0.006)
         playAttackAnim(sprite, target, action.effect ?? 'slash', action.damage)
       }
     }
@@ -942,6 +1085,16 @@ function playAttackAnim(
         sceneRef!.time.delayedCall(250, () => slash.destroy())
       }
       sceneRef!.time.delayedCall(50, () => {
+        const targetSprite = getCombatantSprite(target)
+        if (targetSprite) {
+          const targetX = targetSprite.x
+          sceneRef!.tweens.add({
+            targets: targetSprite,
+            x: targetX + (isHeroAttacking ? 8 : -8),
+            duration: 70,
+            yoyo: true,
+          })
+        }
         applyDamageToTarget(target.id, Math.max(1, damage), 0, 'damage')
       })
     },
@@ -950,6 +1103,10 @@ function playAttackAnim(
       playEntityAnim(sprite, sprite.texture.key, 'idle')
     },
   })
+}
+
+function getCombatantSprite(target: CombatHero | CombatMonster): Phaser.GameObjects.Sprite | undefined {
+  return 'isBoss' in target ? monsterSprites.get(target.id) : heroSprites.get(target.id)
 }
 
 function playProjectile(
@@ -994,11 +1151,13 @@ function applyDamageToTarget(targetId: string, damage: number, healing: number, 
     if (healing > 0) {
       const actual = Math.min(healing, hero.maxHp - hero.hp)
       hero.hp += actual
+      playSfx('heal')
       showFloatingText(hero.x, hero.y - 56, `+${actual}`, '#44ff88')
       addLog(`${hero.name} heals ${actual}`, 'heal')
     } else {
       const actual = Math.max(1, damage)
       hero.hp = Math.max(0, hero.hp - actual)
+      playSfx('hit')
       showFloatingText(hero.x, hero.y - 56, `-${actual}`, '#ff4444')
       addLog(`${hero.name} takes ${actual}`, hero.hp <= 0 ? 'kill' : 'damage')
       if (hero.hp <= 0) {
@@ -1016,9 +1175,11 @@ function applyDamageToTarget(targetId: string, damage: number, healing: number, 
     } else {
       const actual = Math.max(1, damage)
       monster.hp = Math.max(0, monster.hp - actual)
+      playSfx('hit')
       showFloatingText(monster.x, monster.y - (monster.isBoss ? 70 : 46), `-${actual}`, '#ffaa44')
       addLog(`${monster.name} takes ${actual}`, monster.hp <= 0 ? 'kill' : 'damage')
       if (monster.hp <= 0) {
+        hitStop = true
         addLog(`${monster.name} defeated!`, 'kill')
         killMonster(monster)
       }
@@ -1032,6 +1193,7 @@ function killHero(hero: CombatHero) {
   const sprite = heroSprites.get(hero.id)
   if (sprite && sceneRef) {
     playEntityAnim(sprite, sprite.texture.key, 'death')
+    createDeathBurst(hero.x, hero.y, 0xff5555)
     sceneRef.time.delayedCall(600, () => {
       sprite.setAlpha(0.4)
     })
@@ -1043,6 +1205,12 @@ function killMonster(monster: CombatMonster) {
   const sprite = monsterSprites.get(monster.id)
   if (sprite) {
     playEntityAnim(sprite, sprite.texture.key, 'death')
+    createDeathBurst(monster.x, monster.y, 0xffaa44)
+    if (getFrontierModifiers(currentWave).includes('Volatile')) {
+      heroes.filter((hero) => hero.hp > 0 && Math.abs(hero.x - monster.x) < 220).forEach((hero) => {
+        applyDamageToTarget(hero.id, Math.max(1, Math.floor(monster.atk * 0.35)), 0, 'damage')
+      })
+    }
     sceneRef.time.delayedCall(500, () => {
       sprite.destroy()
       const bar = hpBars.get(monster.id)
@@ -1056,11 +1224,30 @@ function killMonster(monster: CombatMonster) {
   }
 }
 
-function showFloatingText(x: number, y: number, text: string, color: string) {
+function createDeathBurst(x: number, y: number, color: number) {
+  if (!sceneRef) return
+  const flash = sceneRef.add.circle(x, y, 22, color, 0.55)
+  flash.setDepth(y + 20)
+  sceneRef.tweens.add({ targets: flash, scale: 2, alpha: 0, duration: 220, onComplete: () => flash.destroy() })
+  for (let i = 0; i < 5; i++) {
+    const spark = sceneRef.add.rectangle(x, y, 4, 4, color)
+    spark.setDepth(y + 20)
+    sceneRef.tweens.add({
+      targets: spark,
+      x: x + (i - 2) * 18,
+      y: y - 18 - (i % 2) * 14,
+      alpha: 0,
+      duration: 300,
+      onComplete: () => spark.destroy(),
+    })
+  }
+}
+
+function showFloatingText(x: number, y: number, text: string, color: string, fontSize = 14) {
   if (!sceneRef) return
   const label = sceneRef.add.text(x, y, text, {
     fontFamily: 'monospace',
-    fontSize: '14px',
+    fontSize: `${fontSize}px`,
     color,
     stroke: '#000000',
     strokeThickness: 3,
@@ -1080,6 +1267,13 @@ function showFloatingText(x: number, y: number, text: string, color: string) {
 }
 
 function processBuffs() {
+  if (getFrontierModifiers(currentWave).includes('Regenerating')) {
+    monsters.filter((monster) => monster.hp > 0).forEach((monster) => {
+      const healing = Math.max(1, Math.floor(monster.maxHp * 0.04))
+      applyDamageToTarget(monster.id, 0, healing, 'heal')
+      showFloatingText(monster.x, monster.y - 54, 'REGEN', '#66ff99')
+    })
+  }
   ;[...heroes, ...monsters].forEach((combatant) => {
     combatant.buffs = combatant.buffs.filter((buff) => {
       buff.duration--
@@ -1147,6 +1341,7 @@ function handleWaveComplete() {
 function endBattle(result: CombatResult) {
   battlePhase = 'complete'
   battleResult = result
+  playSfx(result === 'victory' ? 'victory' : 'defeat')
   addLog(result === 'victory' ? 'Battle Victory!' : 'Battle Defeat!', result === 'victory' ? 'wave-end' : 'kill')
   notifyStateUpdate()
 }

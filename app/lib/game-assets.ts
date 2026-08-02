@@ -96,6 +96,7 @@ export function getHeroTextureKey(name: string): string {
     Blazefang: 'hero-Assassin',
     Windsong: 'hero-Priest',
     Frostweaver: 'hero-Mage',
+    Longshot: 'hero-Archer',
   }
   return map[name] ?? 'hero-Knight'
 }

@@ -97,6 +97,26 @@ export const BOSS_CONFIGS: Record<number, BossConfig> = {
 }
 
 export const MAX_WAVE = 10
+export const FRONTIER_MODIFIERS = [
+  'Frenzied',
+  'Armored',
+  'Regenerating',
+  'Volatile',
+  'ElementalStorm',
+  'Darkness',
+] as const
+export type FrontierModifier = (typeof FRONTIER_MODIFIERS)[number]
+
+export function getFrontierModifiers(wave: number): FrontierModifier[] {
+  if (wave <= MAX_WAVE) return []
+  const depth = wave - MAX_WAVE
+  const first = depth * 17 % FRONTIER_MODIFIERS.length
+  const second = (depth * 31 + 2) % FRONTIER_MODIFIERS.length
+  return first === second
+    ? [FRONTIER_MODIFIERS[first]]
+    : [FRONTIER_MODIFIERS[first], FRONTIER_MODIFIERS[second]]
+}
+
 export const BASE_HP = 100
 export const BASE_ATK = 10
 export const BASE_DEF = 5

@@ -1,4 +1,5 @@
 export type CombatRole = 'tank' | 'damage' | 'support' | 'controller'
+export type CombatElement = 'physical' | 'fire' | 'ice' | 'nature' | 'shadow' | 'holy'
 
 export type CombatAction = 'attack' | 'defend' | 'special' | 'pet-ability' | 'rune-buff'
 
