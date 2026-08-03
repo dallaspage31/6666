@@ -5,8 +5,13 @@ export interface ExplorerLink {
   label: string
 }
 
-export function transactionUrl(signature: string, chainId?: string): ExplorerLink {
-  const config = chainId ? getChainConfig(chainId as never) : getChainConfig('robinhood-devnet')
+export function transactionUrl(
+  signature: string,
+  chainId?: string,
+): ExplorerLink {
+  const config = chainId
+    ? getChainConfig(chainId as never)
+    : getChainConfig('robinhood-devnet')
   return {
     url: `${config.explorerUrl}/tx/${signature}`,
     label: 'View Transaction',
@@ -14,7 +19,9 @@ export function transactionUrl(signature: string, chainId?: string): ExplorerLin
 }
 
 export function addressUrl(address: string, chainId?: string): ExplorerLink {
-  const config = chainId ? getChainConfig(chainId as never) : getChainConfig('robinhood-devnet')
+  const config = chainId
+    ? getChainConfig(chainId as never)
+    : getChainConfig('robinhood-devnet')
   return {
     url: `${config.explorerUrl}/address/${address}`,
     label: 'View Address',
@@ -22,7 +29,9 @@ export function addressUrl(address: string, chainId?: string): ExplorerLink {
 }
 
 export function blockUrl(slot: number, chainId?: string): ExplorerLink {
-  const config = chainId ? getChainConfig(chainId as never) : getChainConfig('robinhood-devnet')
+  const config = chainId
+    ? getChainConfig(chainId as never)
+    : getChainConfig('robinhood-devnet')
   return {
     url: `${config.explorerUrl}/block/${slot}`,
     label: 'View Block',

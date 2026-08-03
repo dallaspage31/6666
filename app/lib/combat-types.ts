@@ -1,10 +1,18 @@
 export type CombatRole = 'tank' | 'damage' | 'support' | 'controller'
 
-export type CombatAction = 'attack' | 'defend' | 'special' | 'pet-ability' | 'rune-buff'
+export type CombatAction =
+  'attack' | 'defend' | 'special' | 'pet-ability' | 'rune-buff'
 
 export type CombatResult = 'victory' | 'defeat' | 'timeout'
 
-export type CombatPhase = 'wave-intro' | 'active' | 'wave-complete' | 'boss-intro' | 'boss-active' | 'complete'
+export type CombatPhase =
+  | 'wave-intro'
+  | 'active'
+  | 'wave-outro'
+  | 'wave-complete'
+  | 'boss-intro'
+  | 'boss-active'
+  | 'complete'
 
 export interface Combatant {
   id: string
@@ -63,7 +71,8 @@ export interface BuffEntry {
 export interface CombatLogEntry {
   turn: number
   text: string
-  type: 'damage' | 'heal' | 'buff' | 'debuff' | 'kill' | 'wave-start' | 'wave-end'
+  type:
+    'damage' | 'heal' | 'buff' | 'debuff' | 'kill' | 'wave-start' | 'wave-end'
 }
 
 export interface CombatState {

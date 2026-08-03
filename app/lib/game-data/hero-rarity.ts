@@ -58,4 +58,10 @@ export const HERO_CLASSES: Record<HeroClass, HeroStats> = {
   },
 }
 
-export const HERO_CLASS_LIST: HeroClass[] = ['Knight', 'Mage', 'Archer', 'Priest', 'Assassin']
+export const HERO_CLASS_LIST: HeroClass[] = [
+  'Knight',
+  'Mage',
+  'Archer',
+  'Priest',
+  'Assassin',
+]

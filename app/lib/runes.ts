@@ -1,4 +1,5 @@
-export type RuneElement = 'fire' | 'water' | 'earth' | 'wind' | 'light' | 'shadow' | 'cosmic'
+export type RuneElement =
+  'fire' | 'water' | 'earth' | 'wind' | 'light' | 'shadow' | 'cosmic'
 
 export type RuneSlot = 'offensive' | 'defensive' | 'growth' | 'utility'
 

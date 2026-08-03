@@ -63,7 +63,8 @@ const STATUS_STYLES: Record<GameSystem['status'], string> = {
 
 export function GameSystems() {
   const [activeTab, setActiveTab] = useState<string>('combat')
-  const activeSystem = GAME_SYSTEMS.find((s) => s.key === activeTab) ?? GAME_SYSTEMS[0]
+  const activeSystem =
+    GAME_SYSTEMS.find((s) => s.key === activeTab) ?? GAME_SYSTEMS[0]
 
   return (
     <div className="space-y-4">
@@ -72,10 +73,10 @@ export function GameSystems() {
           <button
             key={system.key}
             onClick={() => setActiveTab(system.key)}
-            className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+            className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
               activeTab === system.key
-                ? 'bg-gray-800 border-gray-600 text-gray-100'
-                : 'bg-gray-900 border-gray-800 text-gray-500 hover:text-gray-300'
+                ? 'border-gray-600 bg-gray-800 text-gray-100'
+                : 'border-gray-800 bg-gray-900 text-gray-500 hover:text-gray-300'
             }`}
           >
             {system.icon} {system.label}
@@ -83,12 +84,14 @@ export function GameSystems() {
         ))}
       </div>
 
-      <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
-        <div className="flex items-center gap-3 mb-3">
+      <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+        <div className="mb-3 flex items-center gap-3">
           <span className="text-2xl">{activeSystem.icon}</span>
           <div>
             <h3 className="text-lg font-semibold">{activeSystem.label}</h3>
-            <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${STATUS_STYLES[activeSystem.status]}`}>
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-xs ${STATUS_STYLES[activeSystem.status]}`}
+            >
               {activeSystem.status}
             </span>
           </div>

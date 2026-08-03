@@ -1,4 +1,5 @@
-export type CraftingResult = 'success' | 'partial' | 'failure' | 'insufficient-materials'
+export type CraftingResult =
+  'success' | 'partial' | 'failure' | 'insufficient-materials'
 
 export interface CraftingRecipe {
   id: string
@@ -31,9 +32,7 @@ export const CRAFTING_RECIPES: CraftingRecipe[] = [
     name: 'Forge Iron Sword',
     resultItemId: 'item_iron_sword',
     resultCount: 1,
-    materials: [
-      { itemId: 'item_iron_ore', quantity: 3 },
-    ],
+    materials: [{ itemId: 'item_iron_ore', quantity: 3 }],
     xpReward: 25,
     goldCost: 5,
     rarity: 'Common',
@@ -110,9 +109,7 @@ export const CRAFTING_RECIPES: CraftingRecipe[] = [
     name: 'Brew Health Potion',
     resultItemId: 'item_health_potion',
     resultCount: 3,
-    materials: [
-      { itemId: 'item_iron_ore', quantity: 1 },
-    ],
+    materials: [{ itemId: 'item_iron_ore', quantity: 1 }],
     xpReward: 10,
     goldCost: 2,
     rarity: 'Common',
@@ -122,9 +119,7 @@ export const CRAFTING_RECIPES: CraftingRecipe[] = [
     name: 'Condense Mana Crystal',
     resultItemId: 'item_mana_crystal',
     resultCount: 2,
-    materials: [
-      { itemId: 'item_star_fragment', quantity: 1 },
-    ],
+    materials: [{ itemId: 'item_star_fragment', quantity: 1 }],
     xpReward: 30,
     goldCost: 10,
     rarity: 'Uncommon',
@@ -135,11 +130,19 @@ export function getRecipeById(id: string): CraftingRecipe | undefined {
   return CRAFTING_RECIPES.find((recipe) => recipe.id === id)
 }
 
-export function canCraft(recipe: CraftingRecipe, inventory: Record<string, number>): boolean {
-  return recipe.materials.every((mat) => (inventory[mat.itemId] ?? 0) >= mat.quantity)
+export function canCraft(
+  recipe: CraftingRecipe,
+  inventory: Record<string, number>,
+): boolean {
+  return recipe.materials.every(
+    (mat) => (inventory[mat.itemId] ?? 0) >= mat.quantity,
+  )
 }
 
-export function craft(recipeId: string, inventory: Record<string, number>): CraftingResultDetail {
+export function craft(
+  recipeId: string,
+  inventory: Record<string, number>,
+): CraftingResultDetail {
   const recipe = getRecipeById(recipeId)
   if (!recipe) {
     return {

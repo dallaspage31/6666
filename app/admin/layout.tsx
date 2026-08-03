@@ -9,12 +9,12 @@ export default function AdminLayout({
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
       <aside className="lg:col-span-1">
         <nav className="space-y-1 rounded-lg border border-gray-800 bg-gray-900 p-4">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
+          <h2 className="mb-4 text-sm font-semibold tracking-wider text-gray-500 uppercase">
             Admin
           </h2>
           <Link
             href="/admin"
-            className="block rounded-md px-3 py-2 text-sm font-medium text-cyan-400 bg-gray-800"
+            className="block rounded-md bg-gray-800 px-3 py-2 text-sm font-medium text-cyan-400"
           >
             Dashboard
           </Link>

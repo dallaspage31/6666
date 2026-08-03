@@ -41,11 +41,11 @@ export function TokenGate({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 bg-gray-900 border border-gray-800 rounded-lg">
-      <div className="text-center mb-4">
-        <span className="text-3xl mb-2 block">🔒</span>
+    <div className="flex flex-col items-center justify-center rounded-lg border border-gray-800 bg-gray-900 p-8">
+      <div className="mb-4 text-center">
+        <span className="mb-2 block text-3xl">🔒</span>
         <h3 className="text-lg font-semibold text-gray-200">Token Required</h3>
-        <p className="text-sm text-gray-400 mt-1">
+        <p className="mt-1 text-sm text-gray-400">
           You need {requiredAmount} {tokenSymbol} to access this content
         </p>
       </div>
@@ -53,7 +53,7 @@ export function TokenGate({
       <button
         onClick={handleVerify}
         disabled={isLoading}
-        className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors text-gray-300 disabled:opacity-50"
+        className="rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-700 disabled:opacity-50"
       >
         {isLoading ? 'Verifying...' : 'Verify Token Ownership'}
       </button>

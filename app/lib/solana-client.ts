@@ -54,6 +54,8 @@ export class SolanaClient {
   }
 }
 
-export function createSolanaClient(options?: SolanaClientOptions): SolanaClient {
+export function createSolanaClient(
+  options?: SolanaClientOptions,
+): SolanaClient {
   return new SolanaClient(options)
 }

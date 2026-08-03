@@ -1,4 +1,5 @@
-export type HeroRarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Cosmic'
+export type HeroRarity =
+  'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Cosmic'
 
 export interface HeroRarityConfig {
   rarity: HeroRarity
@@ -21,7 +22,7 @@ export const HERO_RARITY_CONFIGS: Record<HeroRarity, HeroRarityConfig> = {
     baseDef: 5,
     baseSpd: 3,
     xpMultiplier: 1.0,
-    dropRate: 0.40,
+    dropRate: 0.4,
     color: 'bg-gray-500',
     textColor: 'text-gray-300',
     borderColor: 'border-gray-500',
@@ -88,7 +89,14 @@ export const HERO_RARITY_CONFIGS: Record<HeroRarity, HeroRarityConfig> = {
   },
 }
 
-export const HERO_RARITIES: HeroRarity[] = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Cosmic']
+export const HERO_RARITIES: HeroRarity[] = [
+  'Common',
+  'Uncommon',
+  'Rare',
+  'Epic',
+  'Legendary',
+  'Cosmic',
+]
 
 export function getRarityConfig(rarity: HeroRarity): HeroRarityConfig {
   return HERO_RARITY_CONFIGS[rarity]

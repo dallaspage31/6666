@@ -1,7 +1,18 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import { ROBINHOOD_CHAIN, ChainEnv, Cluster, type ChainConfig } from '@/lib/robinhood-chain'
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  type ReactNode,
+} from 'react'
+import {
+  ROBINHOOD_CHAIN,
+  ChainEnv,
+  Cluster,
+  type ChainConfig,
+} from '@/lib/robinhood-chain'
 import { toast } from 'sonner'
 
 interface ClusterInfo {
@@ -24,7 +35,8 @@ interface ClusterContextValue {
 const ClusterContext = createContext<ClusterContextValue | null>(null)
 
 function getClusterInfo(env: ChainEnv): ClusterInfo {
-  const cfg = env === 'testnet' ? ROBINHOOD_CHAIN.testnet : ROBINHOOD_CHAIN.mainnet
+  const cfg =
+    env === 'testnet' ? ROBINHOOD_CHAIN.testnet : ROBINHOOD_CHAIN.mainnet
   return {
     env,
     cluster: cfg.cluster,
@@ -41,7 +53,9 @@ export function ClusterProvider({ children }: { children: ReactNode }) {
 
   const setCluster = useCallback((newEnv: ChainEnv) => {
     setEnv(newEnv)
-    toast.info(`Network switched to ${newEnv === 'testnet' ? 'Devnet' : 'Mainnet'}`)
+    toast.info(
+      `Network switched to ${newEnv === 'testnet' ? 'Devnet' : 'Mainnet'}`,
+    )
   }, [])
 
   const switchTestnet = useCallback(() => setCluster('testnet'), [setCluster])
@@ -55,7 +69,9 @@ export function ClusterProvider({ children }: { children: ReactNode }) {
     switchMainnet,
   }
 
-  return <ClusterContext.Provider value={value}>{children}</ClusterContext.Provider>
+  return (
+    <ClusterContext.Provider value={value}>{children}</ClusterContext.Provider>
+  )
 }
 
 export function useCluster(): ClusterContextValue {

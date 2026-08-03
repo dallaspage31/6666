@@ -31,12 +31,60 @@ const RARITY_MULTIPLIERS: Record<EquipmentItem['rarity'], number> = {
 }
 
 const SAMPLE_EQUIPMENT: EquipmentItem[] = [
-  { id: '1', name: 'Iron Sword', rarity: 'Common', slot: 'Weapon', atk: 10, def: 0, hp: 0 },
-  { id: '2', name: 'Steel Helm', rarity: 'Uncommon', slot: 'Helmet', atk: 0, def: 8, hp: 20 },
-  { id: '3', name: 'Shadow Blade', rarity: 'Rare', slot: 'Weapon', atk: 25, def: 0, hp: 0 },
-  { id: '4', name: 'Dragon Plate', rarity: 'Epic', slot: 'Armor', atk: 5, def: 30, hp: 80 },
-  { id: '5', name: 'Phoenix Gauntlets', rarity: 'Legendary', slot: 'Gloves', atk: 15, def: 10, hp: 30 },
-  { id: '6', name: 'Cosmic Crown', rarity: 'Cosmic', slot: 'Helmet', atk: 20, def: 20, hp: 50 },
+  {
+    id: '1',
+    name: 'Iron Sword',
+    rarity: 'Common',
+    slot: 'Weapon',
+    atk: 10,
+    def: 0,
+    hp: 0,
+  },
+  {
+    id: '2',
+    name: 'Steel Helm',
+    rarity: 'Uncommon',
+    slot: 'Helmet',
+    atk: 0,
+    def: 8,
+    hp: 20,
+  },
+  {
+    id: '3',
+    name: 'Shadow Blade',
+    rarity: 'Rare',
+    slot: 'Weapon',
+    atk: 25,
+    def: 0,
+    hp: 0,
+  },
+  {
+    id: '4',
+    name: 'Dragon Plate',
+    rarity: 'Epic',
+    slot: 'Armor',
+    atk: 5,
+    def: 30,
+    hp: 80,
+  },
+  {
+    id: '5',
+    name: 'Phoenix Gauntlets',
+    rarity: 'Legendary',
+    slot: 'Gloves',
+    atk: 15,
+    def: 10,
+    hp: 30,
+  },
+  {
+    id: '6',
+    name: 'Cosmic Crown',
+    rarity: 'Cosmic',
+    slot: 'Helmet',
+    atk: 20,
+    def: 20,
+    hp: 50,
+  },
 ]
 
 export function MeltPanel() {
@@ -60,8 +108,13 @@ export function MeltPanel() {
     setSelectedIds(new Set())
   }
 
-  const selectedItems = SAMPLE_EQUIPMENT.filter((item) => selectedIds.has(item.id))
-  const totalValue = selectedItems.reduce((sum, item) => sum + RARITY_MULTIPLIERS[item.rarity], 0)
+  const selectedItems = SAMPLE_EQUIPMENT.filter((item) =>
+    selectedIds.has(item.id),
+  )
+  const totalValue = selectedItems.reduce(
+    (sum, item) => sum + RARITY_MULTIPLIERS[item.rarity],
+    0,
+  )
 
   return (
     <div className="space-y-4">
@@ -81,10 +134,14 @@ export function MeltPanel() {
             return (
               <div
                 key={item.id}
-                className="flex items-center gap-3 p-3 bg-gray-900 border border-gray-800 rounded-lg opacity-50 line-through"
+                className="flex items-center gap-3 rounded-lg border border-gray-800 bg-gray-900 p-3 line-through opacity-50"
               >
-                <div className={`w-3 h-3 rounded-full ${RARITY_COLORS[item.rarity]}`} />
-                <span className="text-gray-500 text-sm">{item.name} — Melted</span>
+                <div
+                  className={`h-3 w-3 rounded-full ${RARITY_COLORS[item.rarity]}`}
+                />
+                <span className="text-sm text-gray-500">
+                  {item.name} — Melted
+                </span>
               </div>
             )
           }
@@ -92,28 +149,36 @@ export function MeltPanel() {
           return (
             <label
               key={item.id}
-              className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+              className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
                 isSelected
-                  ? 'bg-gray-800 border-gray-600'
-                  : 'bg-gray-900 border-gray-800 hover:border-gray-700'
+                  ? 'border-gray-600 bg-gray-800'
+                  : 'border-gray-800 bg-gray-900 hover:border-gray-700'
               }`}
             >
               <input
                 type="checkbox"
                 checked={isSelected}
                 onChange={() => toggleSelect(item.id)}
-                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-yellow-500 focus:ring-yellow-500"
+                className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-yellow-500 focus:ring-yellow-500"
               />
-              <div className={`w-3 h-3 rounded-full ${RARITY_COLORS[item.rarity]}`} />
-              <div className="flex-1 min-w-0">
+              <div
+                className={`h-3 w-3 rounded-full ${RARITY_COLORS[item.rarity]}`}
+              />
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{item.name}</span>
+                  <span className="text-sm font-medium">{item.name}</span>
                   <span className="text-xs text-gray-500">{item.slot}</span>
                 </div>
-                <div className="flex gap-3 text-xs text-gray-400 mt-0.5">
-                  {item.atk > 0 && <span className="text-orange-400">ATK +{item.atk}</span>}
-                  {item.def > 0 && <span className="text-blue-400">DEF +{item.def}</span>}
-                  {item.hp > 0 && <span className="text-green-400">HP +{item.hp}</span>}
+                <div className="mt-0.5 flex gap-3 text-xs text-gray-400">
+                  {item.atk > 0 && (
+                    <span className="text-orange-400">ATK +{item.atk}</span>
+                  )}
+                  {item.def > 0 && (
+                    <span className="text-blue-400">DEF +{item.def}</span>
+                  )}
+                  {item.hp > 0 && (
+                    <span className="text-green-400">HP +{item.hp}</span>
+                  )}
                 </div>
               </div>
               <span className="text-xs text-gray-500">
@@ -125,13 +190,14 @@ export function MeltPanel() {
       </div>
 
       {selectedIds.size > 0 && (
-        <div className="flex items-center justify-between p-3 bg-gray-900 border border-gray-800 rounded-lg">
+        <div className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-900 p-3">
           <span className="text-sm text-gray-400">
-            Melt {selectedIds.size} item{selectedIds.size > 1 ? 's' : ''} for materials
+            Melt {selectedIds.size} item{selectedIds.size > 1 ? 's' : ''} for
+            materials
           </span>
           <button
             onClick={handleMelt}
-            className="px-4 py-1.5 text-sm bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg transition-colors"
+            className="rounded-lg bg-red-600 px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-red-500"
           >
             Melt Selected
           </button>
