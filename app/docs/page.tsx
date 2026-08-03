@@ -1,24 +1,25 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
+import Link from "next/link";
 
 const docs = [
   {
-    title: 'Installation',
-    description: 'Setup the development environment and run the project locally.',
-    href: '/docs/installation',
+    title: "Installation",
+    description:
+      "Setup the development environment and run the project locally.",
+    href: "/docs/installation",
   },
   {
-    title: 'API Reference',
-    description: 'Player auth, heartbeat, session, and admin endpoints.',
-    href: '/docs/api',
+    title: "API Reference",
+    description: "Player auth, heartbeat, session, and admin endpoints.",
+    href: "/docs/api",
   },
   {
-    title: 'Game Mechanics',
-    description: 'Combat, items, pets, runes, and progression systems.',
-    href: '/docs/game-mechanics',
+    title: "Game Mechanics",
+    description: "Combat, items, pets, runes, and progression systems.",
+    href: "/docs/game-mechanics",
   },
-]
+];
 
 export default function DocsPage() {
   return (
@@ -42,5 +43,5 @@ export default function DocsPage() {
         ))}
       </div>
     </div>
-  )
+  );
 }

@@ -1,23 +1,55 @@
 const stats = [
-  { name: 'Total Players', value: '12,847', change: '+12%', positive: true },
-  { name: 'Active Sessions', value: '1,234', change: '+5%', positive: true },
-  { name: 'Daily Revenue', value: '$4,821', change: '-2%', positive: false },
-  { name: 'Items Minted', value: '89,432', change: '+18%', positive: true },
-]
+  { name: "Total Players", value: "12,847", change: "+12%", positive: true },
+  { name: "Active Sessions", value: "1,234", change: "+5%", positive: true },
+  { name: "Daily Revenue", value: "$4,821", change: "-2%", positive: false },
+  { name: "Items Minted", value: "89,432", change: "+18%", positive: true },
+];
 
 const recentPlayers = [
-  { id: 1, name: 'CyberWolf_99', level: 42, wallet: '7xK2...9f3A', lastActive: '2m ago' },
-  { id: 2, name: 'NeonBlade', level: 67, wallet: '3pQ1...2b8D', lastActive: '5m ago' },
-  { id: 3, name: 'PixelRogue', level: 23, wallet: '9mN4...1c5E', lastActive: '12m ago' },
-  { id: 4, name: 'TitanCore', level: 89, wallet: '5rL8...4d7F', lastActive: '18m ago' },
-  { id: 5, name: 'GlitchX', level: 15, wallet: '8sB3...6a2G', lastActive: '24m ago' },
-]
+  {
+    id: 1,
+    name: "CyberWolf_99",
+    level: 42,
+    wallet: "7xK2...9f3A",
+    lastActive: "2m ago",
+  },
+  {
+    id: 2,
+    name: "NeonBlade",
+    level: 67,
+    wallet: "3pQ1...2b8D",
+    lastActive: "5m ago",
+  },
+  {
+    id: 3,
+    name: "PixelRogue",
+    level: 23,
+    wallet: "9mN4...1c5E",
+    lastActive: "12m ago",
+  },
+  {
+    id: 4,
+    name: "TitanCore",
+    level: 89,
+    wallet: "5rL8...4d7F",
+    lastActive: "18m ago",
+  },
+  {
+    id: 5,
+    name: "GlitchX",
+    level: 15,
+    wallet: "8sB3...6a2G",
+    lastActive: "24m ago",
+  },
+];
 
 export default function AdminDashboard() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-      <p className="mt-1 text-sm text-gray-400">Server overview and key metrics.</p>
+      <p className="mt-1 text-sm text-gray-400">
+        Server overview and key metrics.
+      </p>
 
       <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
@@ -29,10 +61,12 @@ export default function AdminDashboard() {
               {stat.name}
             </dt>
             <dd className="mt-1 flex items-baseline justify-between">
-              <div className="text-2xl font-semibold text-white">{stat.value}</div>
+              <div className="text-2xl font-semibold text-white">
+                {stat.value}
+              </div>
               <div
                 className={`text-sm font-medium ${
-                  stat.positive ? 'text-green-400' : 'text-red-400'
+                  stat.positive ? "text-green-400" : "text-red-400"
                 }`}
               >
                 {stat.change}
@@ -89,5 +123,5 @@ export default function AdminDashboard() {
         </div>
       </div>
     </div>
-  )
+  );
 }
