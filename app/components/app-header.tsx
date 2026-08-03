@@ -1,7 +1,3 @@
-'use client'
-
-import { WalletButton } from './wallet-button'
-
 export function AppHeader() {
   return (
     <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-50">
@@ -25,7 +21,6 @@ export function AppHeader() {
             </a>
           </nav>
         </div>
-        <WalletButton />
       </div>
     </header>
   )
