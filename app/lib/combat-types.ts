@@ -4,7 +4,7 @@ export type CombatAction = 'attack' | 'defend' | 'special' | 'pet-ability' | 'ru
 
 export type CombatResult = 'victory' | 'defeat' | 'timeout'
 
-export type CombatPhase = 'wave-intro' | 'active' | 'wave-complete' | 'boss-intro' | 'boss-active' | 'complete'
+export type CombatPhase = 'wave-intro' | 'wave-outro' | 'active' | 'wave-complete' | 'boss-intro' | 'boss-active' | 'complete'
 
 export interface Combatant {
   id: string

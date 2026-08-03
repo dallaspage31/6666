@@ -6,13 +6,13 @@ import {
   WAVE_CONFIGS,
   BOSS_CONFIGS,
   MAX_WAVE,
-} from '@/lib/combat-config'
+} from '@/app/lib/combat-config'
 import type {
   CombatPhase,
   CombatLogEntry,
   CombatResult,
-} from '@/lib/combat-types'
-import { HERO_RARITY_CONFIGS } from '@/lib/hero-rarity'
+} from '@/app/lib/combat-types'
+import { HERO_RARITY_CONFIGS } from '@/app/lib/hero-rarity'
 
 interface HeroState {
   id: string
@@ -238,7 +238,7 @@ function createMonster(wave: number, monsterId: string, isBoss: boolean = false)
 }
 
 function preloadScene(this: Phaser.Scene) {
-  const graphics = this.make.graphics({ x: 0, y: 0, add: false })
+  const graphics = this.make.graphics({ x: 0, y: 0 }, false)
   graphics.fillStyle(0x0a0a2e, 1)
   graphics.fillRect(0, 0, 2, 2)
   graphics.generateTexture('bg-far', 2, 2)
@@ -349,7 +349,7 @@ function startWaveIntro() {
   scheduleNextTurn()
 }
 
-function spawnWaveMonsters(waveConfig?: ReturnType<typeof WAVE_CONFIGS.find>, bossConfig?: ReturnType<typeof BOSS_CONFIGS[number]>) {
+function spawnWaveMonsters(waveConfig?: ReturnType<typeof WAVE_CONFIGS.find>, bossConfig?: typeof BOSS_CONFIGS[number]) {
   monsters = []
 
   if (bossConfig) {
