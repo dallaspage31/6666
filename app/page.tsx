@@ -1070,7 +1070,7 @@ export default function Page() {
           return (
             <div
               key={pet.id}
-              onClick={() => setSelectedPet(isEquipped ? null : pet.id)}
+              onClick={() => setSelectedPet(pet.id)}
               className={`cursor-pointer rounded-xl border-2 p-3 transition-all hover:scale-105 ${
                 isEquipped
                   ? 'border-blue-500 bg-blue-900/30 ring-2 ring-white'
