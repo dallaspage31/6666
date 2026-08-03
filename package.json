@@ -6,8 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "ci": "next build && next lint && prettier --check .",
+    "lint": "eslint .",
+    "ci": "next build && eslint . && prettier --check .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

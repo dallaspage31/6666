@@ -223,6 +223,13 @@ export default function Page() {
     return game.inventory
   }, [game.inventory])
 
+  const getPetBonus = (bonusType: string) => {
+    if (!game.equippedPet) return 0
+    if (game.equippedPet.bonusType === bonusType)
+      return game.equippedPet.bonusValue
+    return 0
+  }
+
   const equippedStats = useMemo(() => {
     const stats = { atk: 0, def: 0, hp: 0, spd: 0 }
     Object.values(game.equipped).forEach((item) => {
@@ -311,11 +318,18 @@ export default function Page() {
   const handleLevelUp = () => {
     if (!game.selectedHero) return
     const nextLevel = totalLevel + 1
-    const xpNeeded = XP_TABLE[totalLevel - 1]?.xpRequired ?? 100
+    const xpBonus = getPetBonus('xp')
+    const xpNeeded = Math.floor(
+      (XP_TABLE[totalLevel - 1]?.xpRequired ?? 100) * (1 - xpBonus / 100),
+    )
     if (game.xp >= xpNeeded) {
       game.setXp(game.xp - xpNeeded)
       game.setSelectedHero({ ...game.selectedHero, level: nextLevel })
-      toast.success(`Level up! Now level ${nextLevel}`)
+      toast.success(
+        `Level up! Now level ${nextLevel}${
+          xpBonus > 0 ? ` (+${xpBonus}% XP bonus)` : ''
+        }`,
+      )
     } else {
       toast.info(`Need ${xpNeeded} XP to level up.`)
     }
@@ -437,16 +451,22 @@ export default function Page() {
       item.rarity === 'Rare' ||
       item.rarity === 'Epic'
     ) {
-      toast.error('Only Legendary+ items can be sold')
+      toast.error(
+        'Only Legendary+ items can be sold. Items below Legendary can be Melted for Gold.',
+      )
       return
     }
     const price = Math.floor(
       RARITY_MULTIPLIERS[item.rarity as keyof typeof RARITY_MULTIPLIERS] * 10,
     )
-    game.setGold(game.gold + price)
+    const goldBonus = getPetBonus('gold')
+    const bonusPrice = Math.floor(price * (1 + goldBonus / 100))
+    game.setGold(game.gold + bonusPrice)
     game.setInventory(inventory.filter((i) => i.id !== itemId))
     toast.success(
-      `Sold ${item.name || 'item'} for ${price.toLocaleString()} Gold`,
+      `Sold ${item.name || 'item'} for ${bonusPrice.toLocaleString()} Gold${
+        goldBonus > 0 ? ` (+${goldBonus}% pet bonus)` : ''
+      }`,
     )
   }
 
@@ -498,7 +518,9 @@ export default function Page() {
       toast.error('Need at least 9 items to synthesize')
       return
     }
-    const rarities = inventory.map((i) => i.rarity)
+    const consumedItems = inventory.slice(0, 9)
+    const remainingItems = inventory.slice(9)
+    const rarities = consumedItems.map((i) => i.rarity)
     const uniqueRarities = [...new Set(rarities)]
     if (uniqueRarities.length !== 1) {
       toast.error('All 9 items must be the same rarity')
@@ -521,17 +543,23 @@ export default function Page() {
       return
     }
     const newRarity = rarityOrder[currentIdx + 1]
-    const consumedItems = inventory.slice(0, 9)
-    const remainingItems = inventory.slice(9)
+    const avgAtk =
+      consumedItems.reduce((sum, i) => sum + i.atk, 0) / consumedItems.length
+    const avgDef =
+      consumedItems.reduce((sum, i) => sum + i.def, 0) / consumedItems.length
+    const avgHp =
+      consumedItems.reduce((sum, i) => sum + i.hp, 0) / consumedItems.length
+    const avgSpd =
+      consumedItems.reduce((sum, i) => sum + i.spd, 0) / consumedItems.length
     const newItem = {
       id: `synth-${Date.now()}`,
       name: `Upgraded ${selectedCubeSlot}`,
       slot: selectedCubeSlot,
       rarity: newRarity,
-      atk: Math.floor(consumedItems[0].atk * 1.5),
-      def: Math.floor(consumedItems[0].def * 1.5),
-      hp: Math.floor(consumedItems[0].hp * 1.5),
-      spd: Math.floor(consumedItems[0].spd * 1.5),
+      atk: Math.floor(avgAtk * 1.5),
+      def: Math.floor(avgDef * 1.5),
+      hp: Math.floor(avgHp * 1.5),
+      spd: Math.floor(avgSpd * 1.5),
       sockets: Array(SOCKET_LIMIT[newRarity as keyof typeof SOCKET_LIMIT] || 0)
         .fill(null)
         .map(() => ({
@@ -636,7 +664,11 @@ export default function Page() {
   const handleMelt = (itemId: string) => {
     const item = inventory.find((i) => i.id === itemId)
     if (!item) return
+    if (!window.confirm(`Melt ${item.name || 'item'}? This cannot be undone.`))
+      return
     const value = getMeltValue(item)
+    const goldBonus = getPetBonus('gold')
+    const bonusValue = Math.floor(value * (1 + goldBonus / 100))
     const material =
       ALL_MATERIALS[Math.floor(Math.random() * ALL_MATERIALS.length)]
     const materialItem = {
@@ -650,13 +682,15 @@ export default function Page() {
       spd: 0,
       sockets: [] as { gem: string | null; engraving: string | null }[],
     }
-    game.setGold(game.gold + value)
+    game.setGold(game.gold + bonusValue)
     game.setInventory([
       ...inventory.filter((i) => i.id !== itemId),
       materialItem,
     ])
     toast.success(
-      `Melted ${item.name || 'item'} for ${value} Gold + ${material}`,
+      `Melted ${item.name || 'item'} for ${bonusValue} Gold${
+        goldBonus > 0 ? ` (+${goldBonus}% pet bonus)` : ''
+      } + ${material}`,
     )
   }
 
@@ -1277,20 +1311,26 @@ export default function Page() {
           <div className="mb-3 text-sm text-gray-400">Unlocked Features</div>
           <div className="grid grid-cols-2 gap-2 text-sm">
             {[
-              { name: 'Market', unlocked: true },
-              { name: 'Cube System', unlocked: true },
-              { name: 'Melt Panel', unlocked: true },
-              { name: 'Pets', unlocked: true },
-              { name: 'Runes Tree', unlocked: true },
-              { name: 'Battle Arena', unlocked: true },
-              { name: 'Chest System', unlocked: true },
-              { name: 'Token Gate', unlocked: true },
+              { name: 'Market', unlocked: totalLevel >= 1 },
+              { name: 'Cube System', unlocked: totalLevel >= 5 },
+              { name: 'Melt Panel', unlocked: totalLevel >= 3 },
+              { name: 'Pets', unlocked: totalLevel >= 10 },
+              { name: 'Runes Tree', unlocked: totalLevel >= 15 },
+              { name: 'Battle Arena', unlocked: totalLevel >= 20 },
+              { name: 'Chest System', unlocked: totalLevel >= 8 },
+              { name: 'Token Gate', unlocked: totalLevel >= 1 },
             ].map((feature) => (
               <div
                 key={feature.name}
                 className="flex items-center gap-2 text-white"
               >
-                <span className="text-green-400">&#10003;</span>
+                <span
+                  className={
+                    feature.unlocked ? 'text-green-400' : 'text-gray-500'
+                  }
+                >
+                  {feature.unlocked ? '&#10003;' : '&#9734;'}
+                </span>
                 {feature.name}
               </div>
             ))}
