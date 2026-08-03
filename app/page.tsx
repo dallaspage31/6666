@@ -673,12 +673,12 @@ export default function Page() {
   }
 
   const handleSpendRunePoint = (runeId: string) => {
-    if (game.runePoints < 1) {
-      toast.error('No rune points available')
-      return
-    }
     const rune = RUNES.find((r) => r.id === runeId)
     if (!rune) return
+    if (game.runePoints < rune.cost) {
+      toast.error('Not enough rune points')
+      return
+    }
     const maxTier = BRANCH_TIERS[rune.branch as RuneBranch]
     const existing = game.runes.find((r) => r.id === runeId)
     if (existing && existing.points >= maxTier) {
@@ -704,13 +704,17 @@ export default function Page() {
       ])
     }
     game.setRunePoints(game.runePoints - rune.cost)
-    toast.success(`Spent rune point on ${rune.name}`)
+    toast.success(`Spent ${rune.cost} rune points on ${rune.name}`)
   }
 
   const handleResetRunes = () => {
     game.setRunes([])
     game.setRunePoints(
-      game.runePoints + game.runes.reduce((sum, r) => sum + r.points, 0),
+      game.runePoints +
+        game.runes.reduce((sum, r) => {
+          const runeDef = RUNES.find((rd) => rd.id === r.id)
+          return sum + (runeDef ? runeDef.cost * r.points : r.points)
+        }, 0),
     )
     toast.info('Runes reset, points returned')
   }
@@ -967,7 +971,7 @@ export default function Page() {
               Inventory: {inventory.length} items
             </div>
             <div className="mb-3 text-xs text-gray-400">
-              Rewards: 60% Equipment, 20% Material, 12% Gem, 8% Engraving
+              Rewards: 65% Equipment, 15% Material, 13% Gem, 7% Engraving
             </div>
             <button
               onClick={handleRecycle}
@@ -1203,7 +1207,7 @@ export default function Page() {
                   </div>
                   <button
                     onClick={() => handleSpendRunePoint(rune.id)}
-                    disabled={game.runePoints < 1 || isMaxed}
+                    disabled={game.runePoints < rune.cost || isMaxed}
                     className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-gray-600"
                   >
                     {isMaxed ? 'Maxed' : `Spend (${rune.cost})`}
