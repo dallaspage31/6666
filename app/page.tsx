@@ -15,13 +15,13 @@ import {
   SOCKET_LIMIT,
   SLOT_ORDER,
   ItemSlot,
+  ItemRarity,
 } from '@/lib/game-data/items'
 import {
   XP_TABLE,
   getLevelFromXp,
   getXpProgress,
   PRESTIGE_RANKS,
-  type PrestigeRank,
 } from '@/lib/game-data/progression'
 import {
   GEM_TYPES,
@@ -29,12 +29,33 @@ import {
   GEM_STATS,
   ENGRAVING_STATS,
   ALL_MATERIALS,
+  CRAFTING_RECIPES,
   type GemType,
   type EngravingType,
+  type MaterialType,
 } from '@/lib/game-data/crafting'
+import {
+  RUNES,
+  RUNE_BRANCHES,
+  RUNE_BRANCH_COLORS,
+  BRANCH_TIERS,
+  TOTAL_RUNE_POINTS,
+  type RuneBranch,
+} from '@/lib/game-data/runes'
 import { toast } from 'sonner'
 
-type Tab = 'heroes' | 'stats' | 'equipment' | 'inventory' | 'sockets'
+type Tab =
+  | 'heroes'
+  | 'stats'
+  | 'equipment'
+  | 'inventory'
+  | 'sockets'
+  | 'market'
+  | 'cube'
+  | 'melt'
+  | 'pets'
+  | 'runes'
+  | 'progression'
 
 interface SocketData {
   gem: string | null
@@ -105,6 +126,87 @@ function initDefaultInventory() {
   }))
 }
 
+const PET_DATA = [
+  { id: 'pet-1', name: 'Spark', bonusType: 'xp', bonusValue: 10, icon: '⚡' },
+  {
+    id: 'pet-2',
+    name: 'Goldie',
+    bonusType: 'gold',
+    bonusValue: 15,
+    icon: '🪙',
+  },
+  {
+    id: 'pet-3',
+    name: 'Chestnut',
+    bonusType: 'chestFind',
+    bonusValue: 12,
+    icon: '🎁',
+  },
+  {
+    id: 'pet-4',
+    name: 'Shell',
+    bonusType: 'armor',
+    bonusValue: 10,
+    icon: '🛡️',
+  },
+  {
+    id: 'pet-5',
+    name: 'Swift',
+    bonusType: 'atkSpeed',
+    bonusValue: 8,
+    icon: '🐇',
+  },
+  {
+    id: 'pet-6',
+    name: 'Critter',
+    bonusType: 'critical',
+    bonusValue: 10,
+    icon: '🎯',
+  },
+  {
+    id: 'pet-7',
+    name: 'Shadow',
+    bonusType: 'dodge',
+    bonusValue: 10,
+    icon: '👻',
+  },
+  {
+    id: 'pet-8',
+    name: 'Fang',
+    bonusType: 'attack',
+    bonusValue: 12,
+    icon: '🐺',
+  },
+  {
+    id: 'pet-9',
+    name: 'Aegis',
+    bonusType: 'defense',
+    bonusValue: 10,
+    icon: '🏰',
+  },
+]
+
+const HERO_CHEST_PRICES = {
+  Mythic: 5,
+  Astral: 15,
+  Cosmic: 50,
+}
+
+const MARKET_BUY_MULTIPLIER = 10
+const MARKET_SELL_MULTIPLIER = 5
+
+const getBuyPrice = (rarity: string) =>
+  Math.floor(
+    (RARITY_MULTIPLIERS[rarity as keyof typeof RARITY_MULTIPLIERS] || 0) *
+      MARKET_BUY_MULTIPLIER,
+  )
+
+const getSellPrice = (rarity: string) =>
+  Math.floor(
+    (RARITY_MULTIPLIERS[rarity as keyof typeof RARITY_MULTIPLIERS] || 0) *
+      MARKET_SELL_MULTIPLIER,
+  )
+
 export default function Page() {
   const game = useGameContext()
   const [activeTab, setActiveTab] = useState<Tab>('heroes')
@@ -116,6 +218,28 @@ export default function Page() {
   const [inventoryFilterType, setInventoryFilterType] = useState<string>('all')
   const [inventoryFilterRarity, setInventoryFilterRarity] =
     useState<string>('all')
+  const [marketFilterRarity, setMarketFilterRarity] =
+    useState<string>('Legendary')
+  const [marketTab, setMarketTab] = useState<'buy' | 'sell' | 'chests'>('buy')
+  const [cubeTab, setCubeTab] = useState<'synthesize' | 'recycle' | 'craft'>(
+    'synthesize',
+  )
+  const [selectedCubeSlot, setSelectedCubeSlot] =
+    useState<ItemSlot>('Main Hand')
+  const [selectedCubeItems, setSelectedCubeItems] = useState<string[]>([])
+  const toggleCubeItem = (id: string) => {
+    setSelectedCubeItems((prev) =>
+      prev.includes(id)
+        ? prev.filter((i) => i !== id)
+        : prev.length >= 9
+          ? prev
+          : [...prev, id],
+    )
+  }
+  const clearCubeSelection = () => setSelectedCubeItems([])
+  const [selectedRuneBranch, setSelectedRuneBranch] =
+    useState<RuneBranch>('Power')
+  const [selectedPet, setSelectedPet] = useState<string | null>(null)
 
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null)
 
@@ -125,6 +249,13 @@ export default function Page() {
     }
     return game.inventory
   }, [game.inventory])
+
+  const getPetBonus = (bonusType: string) => {
+    if (!game.equippedPet) return 0
+    if (game.equippedPet.bonusType === bonusType)
+      return game.equippedPet.bonusValue
+    return 0
+  }
 
   const equippedStats = useMemo(() => {
     const stats = { atk: 0, def: 0, hp: 0, spd: 0 }
@@ -169,9 +300,17 @@ export default function Page() {
   }, [game.selectedHero, game.xp, totalLevel])
 
   const prestige = useMemo(() => {
-    const rank = PRESTIGE_RANKS[PRESTIGE_RANKS.length - 1]
-    return { ...rank, rank: PRESTIGE_RANKS.length }
-  }, [])
+    const totalXp = game.xp + (game.selectedHero?.xp ?? 0)
+    const playerLevel = getLevelFromXp(totalXp)
+    const prestigeCount = Math.floor(Math.max(0, playerLevel - 1) / 25)
+    let rankData = PRESTIGE_RANKS[0]
+    for (const rank of PRESTIGE_RANKS) {
+      if (prestigeCount >= rank.requiredPrestige) {
+        rankData = rank
+      }
+    }
+    return { ...rankData, rank: rankData.rank }
+  }, [game.xp, game.selectedHero])
 
   const filteredInventory = useMemo(() => {
     return inventory.filter((item) => {
@@ -206,11 +345,24 @@ export default function Page() {
   const handleLevelUp = () => {
     if (!game.selectedHero) return
     const nextLevel = totalLevel + 1
-    const xpNeeded = XP_TABLE[totalLevel - 1]?.xpRequired ?? 100
+    const petXpBonus = getPetBonus('xp')
+    const prestigeXpBonus = prestige.xpBonus * 100
+    const totalXpBonus = petXpBonus + prestigeXpBonus
+    const xpNeeded = Math.floor(
+      (XP_TABLE[totalLevel - 1]?.xpRequired ?? 100) * (1 - totalXpBonus / 100),
+    )
     if (game.xp >= xpNeeded) {
+      const earnedRunePoints = game.runePoints < TOTAL_RUNE_POINTS ? 1 : 0
       game.setXp(game.xp - xpNeeded)
       game.setSelectedHero({ ...game.selectedHero, level: nextLevel })
-      toast.success(`Level up! Now level ${nextLevel}`)
+      game.setRunePoints(
+        Math.min(game.runePoints + earnedRunePoints, TOTAL_RUNE_POINTS),
+      )
+      toast.success(
+        `Level up! Now level ${nextLevel}${
+          totalXpBonus > 0 ? ` (+${Math.round(totalXpBonus)}% XP bonus)` : ''
+        }${earnedRunePoints > 0 ? ' +1 Rune Point' : ''}`,
+      )
     } else {
       toast.info(`Need ${xpNeeded} XP to level up.`)
     }
@@ -279,6 +431,1002 @@ export default function Page() {
     updated[socketIdx] = { ...updated[socketIdx], engraving }
     setSocketMap((prev) => ({ ...prev, [key]: updated }))
     toast.success(`Applied ${engraving} to ${slot}`)
+  }
+
+  const handleBuyItem = (itemName: string) => {
+    const allItems = ALL_ITEMS
+    const item = allItems.find((i) => i.name === itemName)
+    if (!item) return
+    if (
+      item.rarity === 'Common' ||
+      item.rarity === 'Uncommon' ||
+      item.rarity === 'Rare' ||
+      item.rarity === 'Epic'
+    ) {
+      toast.error('Only Legendary+ items can be bought from the market')
+      return
+    }
+    const price = getBuyPrice(item.rarity)
+    if (game.gold < price) {
+      toast.error(`Need ${price.toLocaleString()} Gold to buy ${itemName}`)
+      return
+    }
+    game.setGold(game.gold - price)
+    const newItem = {
+      id: `market-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: item.name,
+      slot: item.slot,
+      rarity: item.rarity,
+      atk: item.atk,
+      def: item.def,
+      hp: item.hp,
+      spd: item.spd,
+      sockets: Array(
+        SOCKET_LIMIT[item.rarity as keyof typeof SOCKET_LIMIT] || 0,
+      )
+        .fill(null)
+        .map(() => ({
+          gem: null as string | null,
+          engraving: null as string | null,
+        })),
+    }
+    game.setInventory([...inventory, newItem])
+    toast.success(`Purchased ${itemName} for ${price.toLocaleString()} Gold`)
+  }
+
+  const handleSellItem = (itemId: string) => {
+    const item = inventory.find((i) => i.id === itemId)
+    if (!item) return
+    if (
+      item.rarity === 'Common' ||
+      item.rarity === 'Uncommon' ||
+      item.rarity === 'Rare' ||
+      item.rarity === 'Epic'
+    ) {
+      toast.error(
+        'Only Legendary+ items can be sold. Items below Legendary can be Melted for Gold.',
+      )
+      return
+    }
+    const price = getSellPrice(item.rarity)
+    const petGoldBonus = getPetBonus('gold')
+    const prestigeGoldBonus = prestige.goldBonus * 100
+    const totalGoldBonus = petGoldBonus + prestigeGoldBonus
+    const bonusPrice = Math.floor(price * (1 + totalGoldBonus / 100))
+    game.setGold(game.gold + bonusPrice)
+    game.setInventory(inventory.filter((i) => i.id !== itemId))
+    toast.success(
+      `Sold ${item.name || 'item'} for ${bonusPrice.toLocaleString()} Gold${
+        totalGoldBonus > 0 ? ` (+${Math.round(totalGoldBonus)}% bonus)` : ''
+      }`,
+    )
+  }
+
+  const handleBuyChest = (tier: 'Mythic' | 'Astral' | 'Cosmic') => {
+    const price = HERO_CHEST_PRICES[tier]
+    if (game.robheroesBalance < price) {
+      toast.error(`Need ${price} ROBH to buy a ${tier} Hero Chest`)
+      return
+    }
+    game.setRobheroesBalance(game.robheroesBalance - price)
+    const rarities: Record<string, string[]> = {
+      Mythic: ['Legendary', 'Mythic'],
+      Astral: ['Mythic', 'Astral'],
+      Cosmic: ['Astral', 'Cosmic'],
+    }
+    const options = rarities[tier]
+    const result = options[Math.floor(Math.random() * options.length)] as string
+    const slot = SLOT_ORDER[Math.floor(Math.random() * SLOT_ORDER.length)]
+    const newItem = {
+      id: `chest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: `${tier} ${slot}`,
+      slot: slot as ItemSlot,
+      rarity: result as ItemRarity,
+      atk: Math.floor(
+        RARITY_MULTIPLIERS[result as keyof typeof RARITY_MULTIPLIERS] * 5,
+      ),
+      def: Math.floor(
+        RARITY_MULTIPLIERS[result as keyof typeof RARITY_MULTIPLIERS] * 3,
+      ),
+      hp: Math.floor(
+        RARITY_MULTIPLIERS[result as keyof typeof RARITY_MULTIPLIERS] * 10,
+      ),
+      spd: Math.floor(
+        RARITY_MULTIPLIERS[result as keyof typeof RARITY_MULTIPLIERS] * 2,
+      ),
+      sockets: Array(SOCKET_LIMIT[result as keyof typeof SOCKET_LIMIT] || 0)
+        .fill(null)
+        .map(() => ({
+          gem: null as string | null,
+          engraving: null as string | null,
+        })),
+    }
+    game.setInventory([...inventory, newItem])
+    toast.success(`Opened ${tier} Hero Chest! Received: ${result} ${slot}`)
+  }
+
+  const handleSynthesize = () => {
+    const consumedItems = inventory.filter((i) =>
+      selectedCubeItems.includes(i.id),
+    )
+    if (consumedItems.length < 9) {
+      toast.error(
+        'Select exactly 9 items to synthesize (currently selected: ' +
+          consumedItems.length +
+          ')',
+      )
+      return
+    }
+    const usedItems = consumedItems.slice(0, 9)
+    const remainingItems = inventory.filter(
+      (i) => !selectedCubeItems.includes(i.id),
+    )
+    if (
+      !window.confirm(
+        `Synthesize 9 items? They will be consumed. This cannot be undone.`,
+      )
+    )
+      return
+    const rarities = usedItems.map((i) => i.rarity)
+    const uniqueRarities = [...new Set(rarities)]
+    if (uniqueRarities.length !== 1) {
+      toast.error('All 9 items must be the same rarity')
+      return
+    }
+    const currentRarity = uniqueRarities[0]
+    const rarityOrder = [
+      'Common',
+      'Uncommon',
+      'Rare',
+      'Epic',
+      'Legendary',
+      'Mythic',
+      'Astral',
+      'Cosmic',
+    ]
+    const currentIdx = rarityOrder.indexOf(currentRarity)
+    if (currentIdx >= rarityOrder.length - 1) {
+      toast.error('Items are already at maximum rarity')
+      return
+    }
+    const newRarity = rarityOrder[currentIdx + 1]
+    const avgAtk =
+      consumedItems.reduce((sum, i) => sum + i.atk, 0) / consumedItems.length
+    const avgDef =
+      consumedItems.reduce((sum, i) => sum + i.def, 0) / consumedItems.length
+    const avgHp =
+      consumedItems.reduce((sum, i) => sum + i.hp, 0) / consumedItems.length
+    const avgSpd =
+      consumedItems.reduce((sum, i) => sum + i.spd, 0) / consumedItems.length
+    const newItem = {
+      id: `synth-${Date.now()}`,
+      name: `Upgraded ${selectedCubeSlot}`,
+      slot: selectedCubeSlot,
+      rarity: newRarity,
+      atk: Math.floor(avgAtk * 1.5),
+      def: Math.floor(avgDef * 1.5),
+      hp: Math.floor(avgHp * 1.5),
+      spd: Math.floor(avgSpd * 1.5),
+      sockets: Array(SOCKET_LIMIT[newRarity as keyof typeof SOCKET_LIMIT] || 0)
+        .fill(null)
+        .map(() => ({
+          gem: null as string | null,
+          engraving: null as string | null,
+        })),
+    }
+    game.setInventory([...remainingItems, newItem])
+    clearCubeSelection()
+    toast.success(`Synthesized! ${currentRarity} → ${newRarity}`)
+  }
+
+  const handleRecycle = () => {
+    const selectedCount = selectedCubeItems.filter((id) =>
+      inventory.some((i) => i.id === id),
+    ).length
+    if (selectedCount < 9) {
+      toast.error(
+        'Select exactly 9 items to recycle (currently selected: ' +
+          selectedCount +
+          ')',
+      )
+      return
+    }
+    const remainingItems = inventory.filter(
+      (i) => !selectedCubeItems.includes(i.id),
+    )
+    if (
+      !window.confirm(
+        `Recycle 9 items? They will be destroyed. This cannot be undone.`,
+      )
+    )
+      return
+    const roll = Math.random()
+    let reward: string
+    if (roll < 0.65) {
+      reward = 'equipment'
+    } else if (roll < 0.8) {
+      reward = 'material'
+    } else if (roll < 0.93) {
+      reward = 'gem'
+    } else {
+      reward = 'engraving'
+    }
+    const slot = SLOT_ORDER[Math.floor(Math.random() * SLOT_ORDER.length)]
+    const rarities = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary']
+    const rarity = rarities[Math.floor(Math.random() * rarities.length)]
+    let rewardName = ''
+    if (reward === 'equipment') {
+      const found = ALL_ITEMS.find((i) => i.rarity === rarity) || ALL_ITEMS[0]
+      rewardName = found.name
+    } else if (reward === 'material') {
+      rewardName =
+        ALL_MATERIALS[Math.floor(Math.random() * ALL_MATERIALS.length)]
+    } else if (reward === 'gem') {
+      rewardName = GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)]
+    } else {
+      rewardName =
+        ENGRAVING_TYPES[Math.floor(Math.random() * ENGRAVING_TYPES.length)]
+    }
+    const newItem = {
+      id: `recycle-${Date.now()}`,
+      name: rewardName,
+      slot: reward === 'equipment' ? slot : 'Bracer',
+      rarity: reward === 'equipment' ? rarity : 'Common',
+      atk: reward === 'equipment' ? Math.floor(Math.random() * 20) + 1 : 0,
+      def: reward === 'equipment' ? Math.floor(Math.random() * 20) + 1 : 0,
+      hp: reward === 'equipment' ? Math.floor(Math.random() * 30) + 1 : 0,
+      spd: reward === 'equipment' ? Math.floor(Math.random() * 10) + 1 : 0,
+      sockets: [],
+    }
+    game.setInventory([...remainingItems, newItem])
+    clearCubeSelection()
+    toast.success(`Recycled 9 items! Received: ${rewardName}`)
+  }
+
+  const handleCraft = () => {
+    const material = inventory.find((i) =>
+      ALL_MATERIALS.includes(i.name as MaterialType),
+    )
+    if (!material) {
+      toast.error('Need a material to craft')
+      return
+    }
+    const recipe =
+      CRAFTING_RECIPES[Math.floor(Math.random() * CRAFTING_RECIPES.length)]
+    const newItem = {
+      id: `craft-${Date.now()}`,
+      name: recipe.name,
+      slot: selectedCubeSlot,
+      rarity: recipe.resultRarity,
+      atk: Math.floor(Math.random() * 30) + 5,
+      def: Math.floor(Math.random() * 20) + 2,
+      hp: Math.floor(Math.random() * 20) + 5,
+      spd: Math.floor(Math.random() * 10) + 1,
+      sockets: Array(
+        SOCKET_LIMIT[recipe.resultRarity as keyof typeof SOCKET_LIMIT] || 0,
+      )
+        .fill(null)
+        .map(() => ({
+          gem: null as string | null,
+          engraving: null as string | null,
+        })),
+    }
+    game.setInventory([
+      ...inventory.filter((i) => i.id !== material.id),
+      newItem,
+    ])
+    toast.success(`Crafted ${recipe.name} for ${selectedCubeSlot}!`)
+  }
+
+  const getMeltValue = (item: (typeof inventory)[0]) => {
+    const mult =
+      RARITY_MULTIPLIERS[item.rarity as keyof typeof RARITY_MULTIPLIERS] || 1
+    return Math.floor((item.atk + item.def + item.hp + item.spd) * mult)
+  }
+
+  const handleMelt = (itemId: string) => {
+    const item = inventory.find((i) => i.id === itemId)
+    if (!item) return
+    if (!window.confirm(`Melt ${item.name || 'item'}? This cannot be undone.`))
+      return
+    const value = getMeltValue(item)
+    const petGoldBonus = getPetBonus('gold')
+    const prestigeGoldBonus = prestige.goldBonus * 100
+    const totalGoldBonus = petGoldBonus + prestigeGoldBonus
+    const bonusValue = Math.floor(value * (1 + totalGoldBonus / 100))
+    const material =
+      ALL_MATERIALS[Math.floor(Math.random() * ALL_MATERIALS.length)]
+    const materialItem = {
+      id: `melt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: material,
+      slot: 'Bracer' as ItemSlot,
+      rarity: 'Common',
+      atk: 0,
+      def: 0,
+      hp: 0,
+      spd: 0,
+      sockets: [] as { gem: string | null; engraving: string | null }[],
+    }
+    game.setGold(game.gold + bonusValue)
+    game.setInventory([
+      ...inventory.filter((i) => i.id !== itemId),
+      materialItem,
+    ])
+    toast.success(
+      `Melted ${item.name || 'item'} for ${bonusValue} Gold${
+        totalGoldBonus > 0 ? ` (+${Math.round(totalGoldBonus)}% bonus)` : ''
+      } + ${material}`,
+    )
+  }
+
+  const handleEquipPet = (petId: string) => {
+    const pet = PET_DATA.find((p) => p.id === petId)
+    if (!pet) return
+    if (game.equippedPet?.id === petId) {
+      game.setEquippedPet(null)
+      toast.info(`Unequipped ${pet.name}`)
+      return
+    }
+    game.setEquippedPet({ ...pet, equipped: true })
+    toast.success(`Equipped ${pet.name}`)
+  }
+
+  const handleSpendRunePoint = (runeId: string) => {
+    const rune = RUNES.find((r) => r.id === runeId)
+    if (!rune) return
+    if (game.runePoints < rune.cost) {
+      toast.error('Not enough rune points')
+      return
+    }
+    const maxTier = BRANCH_TIERS[rune.branch as RuneBranch]
+    const existing = game.runes.find((r) => r.id === runeId)
+    if (existing && existing.points >= maxTier) {
+      toast.error('Rune is already at max level')
+      return
+    }
+    if (existing) {
+      game.setRunes(
+        game.runes.map((r) =>
+          r.id === runeId ? { ...r, points: r.points + 1 } : r,
+        ),
+      )
+    } else {
+      game.setRunes([
+        ...game.runes,
+        {
+          id: rune.id,
+          branch: rune.branch,
+          name: rune.name,
+          tier: rune.tier,
+          points: 1,
+        },
+      ])
+    }
+    game.setRunePoints(game.runePoints - rune.cost)
+    toast.success(`Spent ${rune.cost} rune points on ${rune.name}`)
+  }
+
+  const handleResetRunes = () => {
+    game.setRunes([])
+    game.setRunePoints(
+      game.runePoints +
+        game.runes.reduce((sum, r) => {
+          const runeDef = RUNES.find((rd) => rd.id === r.id)
+          return sum + (runeDef ? runeDef.cost * r.points : r.points)
+        }, 0),
+    )
+    toast.info('Runes reset, points returned')
+  }
+
+  const renderMarket = () => (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-white">Market</h2>
+      <div className="flex gap-2 border-b border-gray-700 pb-2">
+        {[
+          { id: 'buy', label: 'Buy' },
+          { id: 'sell', label: 'Sell' },
+          { id: 'chests', label: 'Hero Chests' },
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setMarketTab(t.id as typeof marketTab)}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              marketTab === t.id
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {marketTab === 'buy' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-400">
+              Buy Legendary+ equipment with Gold
+            </div>
+            <select
+              value={marketFilterRarity}
+              onChange={(e) => setMarketFilterRarity(e.target.value)}
+              className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1 text-sm text-white"
+            >
+              <option value="all">All Legendary+</option>
+              {['Legendary', 'Mythic', 'Astral', 'Cosmic'].map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {ALL_ITEMS.filter(
+              (i) =>
+                i.rarity === 'Legendary' ||
+                i.rarity === 'Mythic' ||
+                i.rarity === 'Astral' ||
+                i.rarity === 'Cosmic',
+            )
+              .filter(
+                (i) =>
+                  marketFilterRarity === 'all' ||
+                  i.rarity === marketFilterRarity,
+              )
+              .map((item) => {
+                const price = getBuyPrice(item.rarity)
+                const rarity = item.rarity as keyof typeof RARITY_COLORS
+                return (
+                  <div
+                    key={item.name}
+                    className={`rounded-xl border-2 p-3 ${RARITY_COLORS[rarity]} ${RARITY_BG[rarity]}`}
+                  >
+                    <div className="text-sm font-semibold">{item.name}</div>
+                    <div className="mt-1 text-xs opacity-70">
+                      {item.slot} - {item.rarity}
+                    </div>
+                    <div className="mt-2 space-y-0.5 text-xs opacity-80">
+                      {item.atk > 0 && <div>ATK +{item.atk}</div>}
+                      {item.def > 0 && <div>DEF +{item.def}</div>}
+                      {item.hp > 0 && <div>HP +{item.hp}</div>}
+                      {item.spd > 0 && <div>SPD +{item.spd}</div>}
+                    </div>
+                    <div className="mt-2 text-xs font-bold text-yellow-400">
+                      {price.toLocaleString()} Gold
+                    </div>
+                    <button
+                      onClick={() => handleBuyItem(item.name)}
+                      disabled={game.gold < price}
+                      className="mt-2 w-full rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-gray-600"
+                    >
+                      Buy
+                    </button>
+                  </div>
+                )
+              })}
+          </div>
+        </div>
+      )}
+      {marketTab === 'sell' && (
+        <div className="space-y-3">
+          <div className="text-sm text-gray-400">
+            Sell Legendary+ equipment for Gold
+          </div>
+          {inventory.filter(
+            (i) =>
+              i.rarity === 'Legendary' ||
+              i.rarity === 'Mythic' ||
+              i.rarity === 'Astral' ||
+              i.rarity === 'Cosmic',
+          ).length === 0 ? (
+            <div className="py-8 text-center text-gray-500">
+              No Legendary+ items to sell.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {inventory
+                .filter(
+                  (i) =>
+                    i.rarity === 'Legendary' ||
+                    i.rarity === 'Mythic' ||
+                    i.rarity === 'Astral' ||
+                    i.rarity === 'Cosmic',
+                )
+                .map((item) => {
+                  const price = getSellPrice(item.rarity)
+                  const rarity = item.rarity as keyof typeof RARITY_COLORS
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-xl border-2 p-3 ${RARITY_COLORS[rarity]} ${RARITY_BG[rarity]}`}
+                    >
+                      <div className="text-sm font-semibold">
+                        {item.name || 'Item'}
+                      </div>
+                      <div className="mt-1 text-xs opacity-70">
+                        {item.slot} - {item.rarity}
+                      </div>
+                      <div className="mt-2 text-xs font-bold text-yellow-400">
+                        {price.toLocaleString()} Gold
+                      </div>
+                      <button
+                        onClick={() => handleSellItem(item.id)}
+                        className="mt-2 w-full rounded bg-red-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-red-500"
+                      >
+                        Sell
+                      </button>
+                    </div>
+                  )
+                })}
+            </div>
+          )}
+        </div>
+      )}
+      {marketTab === 'chests' && (
+        <div className="space-y-4">
+          <div className="text-sm text-gray-400">
+            Purchase Hero Chests with ROBHEROES tokens
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {[
+              {
+                tier: 'Mythic' as const,
+                price: HERO_CHEST_PRICES.Mythic,
+                drops: 'Legendary / Mythic',
+              },
+              {
+                tier: 'Astral' as const,
+                price: HERO_CHEST_PRICES.Astral,
+                drops: 'Mythic / Astral',
+              },
+              {
+                tier: 'Cosmic' as const,
+                price: HERO_CHEST_PRICES.Cosmic,
+                drops: 'Astral / Cosmic',
+              },
+            ].map(({ tier, price, drops }) => (
+              <div
+                key={tier}
+                className="rounded-xl border border-gray-700 bg-gray-800/60 p-4"
+              >
+                <div className="text-lg font-bold text-white">{tier} Chest</div>
+                <div className="mt-2 text-sm text-gray-400">
+                  Cost: {price} ROBH
+                </div>
+                <div className="mt-1 text-xs text-gray-500">Drops: {drops}</div>
+                <button
+                  onClick={() => handleBuyChest(tier)}
+                  disabled={game.robheroesBalance < price}
+                  className="mt-3 w-full rounded bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-500 disabled:cursor-not-allowed disabled:bg-gray-600"
+                >
+                  Open Chest
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const renderCubeItemSelector = () => (
+    <div className="grid max-h-60 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+      {inventory.map((item) => {
+        const selected = selectedCubeItems.includes(item.id)
+        const rarity = item.rarity as keyof typeof RARITY_COLORS
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => toggleCubeItem(item.id)}
+            className={`flex items-center justify-between rounded-lg border-2 p-2 text-left ${
+              selected
+                ? 'border-cyan-400 ring-2 ring-cyan-400'
+                : 'border-gray-700'
+            } ${RARITY_BG[rarity] || ''}`}
+          >
+            <span className="text-xs font-semibold">{item.name || 'Item'}</span>
+            <span className="text-xs opacity-70">{item.rarity}</span>
+            {selected && <span className="ml-1 text-cyan-400">&#10003;</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  const renderCube = () => (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-white">Cube System</h2>
+      <div className="flex gap-2 border-b border-gray-700 pb-2">
+        {[
+          { id: 'synthesize', label: 'Synthesize' },
+          { id: 'recycle', label: 'Recycle' },
+          { id: 'craft', label: 'Craft' },
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => {
+              setCubeTab(t.id as typeof cubeTab)
+              clearCubeSelection()
+            }}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              cubeTab === t.id
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {cubeTab === 'synthesize' && (
+        <div className="space-y-4">
+          <div className="text-sm text-gray-400">
+            Combine 9 items of the same rarity to upgrade rarity
+          </div>
+          <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
+            <span>Selected: {selectedCubeItems.length}/9 items</span>
+            <button
+              onClick={clearCubeSelection}
+              className="rounded bg-gray-700 px-2 py-0.5 text-xs text-white hover:bg-gray-600"
+            >
+              Clear
+            </button>
+          </div>
+          {renderCubeItemSelector()}
+          <button
+            onClick={handleSynthesize}
+            disabled={selectedCubeItems.length < 9}
+            className="w-full rounded-lg bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-gray-600"
+          >
+            Synthesize ({selectedCubeItems.length}/9)
+          </button>
+        </div>
+      )}
+      {cubeTab === 'recycle' && (
+        <div className="space-y-4">
+          <div className="text-sm text-gray-400">
+            Recycle 9 items for a random reward
+          </div>
+          <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
+            <span>Selected: {selectedCubeItems.length}/9 items</span>
+            <button
+              onClick={clearCubeSelection}
+              className="rounded bg-gray-700 px-2 py-0.5 text-xs text-white hover:bg-gray-600"
+            >
+              Clear
+            </button>
+          </div>
+          {renderCubeItemSelector()}
+          <button
+            onClick={handleRecycle}
+            disabled={selectedCubeItems.length < 9}
+            className="w-full rounded-lg bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-gray-600"
+          >
+            Recycle ({selectedCubeItems.length}/9)
+          </button>
+        </div>
+      )}
+      {cubeTab === 'craft' && (
+        <div className="space-y-4">
+          <div className="text-sm text-gray-400">
+            Craft equipment from materials
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <select
+              value={selectedCubeSlot}
+              onChange={(e) => setSelectedCubeSlot(e.target.value as ItemSlot)}
+              className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white"
+            >
+              {SLOT_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="rounded-xl border border-gray-700 bg-gray-800/60 p-4">
+            <div className="mb-2 text-sm font-medium text-white">
+              Requires: 1 Material
+            </div>
+            <div className="mb-3 text-xs text-gray-400">
+              Craft a random equipment for the selected slot
+            </div>
+            <button
+              onClick={handleCraft}
+              className="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-500"
+            >
+              Craft
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const renderMelt = () => (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-white">Melt Panel</h2>
+      <div className="text-sm text-gray-400">
+        Decompose equipment into Gold + crafting materials based on rarity
+      </div>
+      {inventory.length === 0 ? (
+        <div className="py-8 text-center text-gray-500">No items to melt.</div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {inventory.map((item) => {
+            const value = getMeltValue(item)
+            const rarity = item.rarity as keyof typeof RARITY_COLORS
+            return (
+              <div
+                key={item.id}
+                className={`rounded-xl border-2 p-3 ${RARITY_COLORS[rarity]} ${RARITY_BG[rarity]}`}
+              >
+                <div className="text-sm font-semibold">
+                  {item.name || 'Item'}
+                </div>
+                <div className="mt-1 text-xs opacity-70">
+                  {item.slot} - {item.rarity}
+                </div>
+                <div className="mt-2 text-xs font-bold text-yellow-400">
+                  Melt Value: {value} Gold + Material
+                </div>
+                <button
+                  onClick={() => handleMelt(item.id)}
+                  className="mt-2 w-full rounded bg-red-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-red-500"
+                >
+                  Melt
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+
+  const renderPets = () => (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-white">Pets</h2>
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+        {PET_DATA.map((pet) => {
+          const isEquipped = game.equippedPet?.id === pet.id
+          return (
+            <div
+              key={pet.id}
+              onClick={() => setSelectedPet(pet.id)}
+              className={`cursor-pointer rounded-xl border-2 p-3 transition-all hover:scale-105 ${
+                isEquipped
+                  ? 'border-blue-500 bg-blue-900/30 ring-2 ring-white'
+                  : 'border-gray-700 bg-gray-800/60 hover:border-gray-500'
+              }`}
+            >
+              <div className="text-center text-2xl">{pet.icon}</div>
+              <div className="mt-2 text-center text-sm font-semibold text-white">
+                {pet.name}
+              </div>
+              <div className="mt-1 text-center text-xs text-gray-400 capitalize">
+                {pet.bonusType} +{pet.bonusValue}
+              </div>
+              {isEquipped && (
+                <div className="mt-2 text-center text-xs text-blue-400">
+                  Equipped
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {selectedPet && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setSelectedPet(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-gray-700 bg-gray-900 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(() => {
+              const pet = PET_DATA.find((p) => p.id === selectedPet)
+              if (!pet) return null
+              const isEquipped = game.equippedPet?.id === pet.id
+              return (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-white">{pet.name}</h3>
+                    <button
+                      onClick={() => setSelectedPet(null)}
+                      className="text-2xl leading-none text-gray-400 hover:text-white"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                  <div className="text-center text-4xl">{pet.icon}</div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-gray-400">Bonus Type:</div>
+                    <div className="text-white capitalize">
+                      {pet.bonusType} +{pet.bonusValue}
+                    </div>
+                    <div className="text-gray-400">Status:</div>
+                    <div className="text-white">
+                      {isEquipped ? 'Equipped' : 'Not Equipped'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleEquipPet(pet.id)}
+                    className={`w-full rounded-lg px-4 py-2 font-medium text-white transition-colors ${
+                      isEquipped
+                        ? 'bg-red-600 hover:bg-red-500'
+                        : 'bg-blue-600 hover:bg-blue-500'
+                    }`}
+                  >
+                    {isEquipped ? 'Unequip' : 'Equip'} {pet.name}
+                  </button>
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const renderRunes = () => {
+    const branchRunes = RUNES.filter((r) => r.branch === selectedRuneBranch)
+    const spentPoints = game.runes
+      .filter((r) => r.branch === selectedRuneBranch)
+      .reduce((sum, r) => sum + r.points, 0)
+    const maxPoints = BRANCH_TIERS[selectedRuneBranch] * 5
+
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-white">Runes Tree</h2>
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-gray-400">
+            Rune Points:{' '}
+            <span className="font-bold text-purple-400">{game.runePoints}</span>
+          </div>
+          <div className="text-sm text-gray-400">
+            Spent: {spentPoints} / {maxPoints}
+          </div>
+        </div>
+        <div className="flex gap-2 border-b border-gray-700 pb-2">
+          {RUNE_BRANCHES.map((branch) => (
+            <button
+              key={branch}
+              onClick={() => setSelectedRuneBranch(branch)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                selectedRuneBranch === branch
+                  ? `${RUNE_BRANCH_COLORS[branch]} border-2`
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+              }`}
+            >
+              {branch}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {branchRunes.map((rune) => {
+            const existing = game.runes.find((r) => r.id === rune.id)
+            const currentPoints = existing?.points ?? 0
+            const maxTier = BRANCH_TIERS[rune.branch as RuneBranch]
+            const isMaxed = currentPoints >= maxTier
+            return (
+              <div
+                key={rune.id}
+                className={`rounded-xl border-2 p-3 ${RUNE_BRANCH_COLORS[selectedRuneBranch as RuneBranch]}`}
+              >
+                <div className="text-sm font-semibold text-white">
+                  {rune.name}
+                </div>
+                <div className="mt-1 text-xs text-gray-300">
+                  Tier {rune.tier} - {rune.stat} +{rune.value}
+                </div>
+                <div className="mt-1 text-xs text-gray-400">
+                  {rune.description}
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="text-xs text-gray-400">
+                    Level: {currentPoints} / {maxTier}
+                  </div>
+                  <button
+                    onClick={() => handleSpendRunePoint(rune.id)}
+                    disabled={game.runePoints < rune.cost || isMaxed}
+                    className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-gray-600"
+                  >
+                    {isMaxed ? 'Maxed' : `Spend (${rune.cost})`}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        {game.runes.length > 0 && (
+          <button
+            onClick={handleResetRunes}
+            className="mt-4 rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-600"
+          >
+            Reset All Runes
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  const renderProgression = () => {
+    const xpForNext = XP_TABLE[totalLevel - 1]?.xpRequired ?? 100
+    const xpCurrent = Math.min(
+      game.xp + (game.selectedHero?.xp ?? 0),
+      xpForNext,
+    )
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-white">Progression</h2>
+
+        <div className="rounded-xl border border-gray-700 bg-gray-800/60 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-lg font-bold text-white">
+                Level {totalLevel}
+              </div>
+              <div className="text-sm text-gray-400">
+                {game.selectedHero?.class ?? 'No Hero'}
+              </div>
+            </div>
+            <div className="text-right text-sm text-gray-400">
+              <div>
+                XP: {xpCurrent} / {xpForNext}
+              </div>
+              <div>{xpProgress.toFixed(1)}% to next level</div>
+            </div>
+          </div>
+          <div className="mt-3 h-4 w-full overflow-hidden rounded-full bg-gray-700">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
+              style={{ width: `${Math.min(100, xpProgress)}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-gray-700 bg-gray-800/60 p-4">
+          <div className="mb-2 text-sm text-gray-400">Prestige Rank</div>
+          <div className="text-lg font-bold text-white">{prestige.name}</div>
+          <div className="mt-1 text-xs text-gray-500">
+            XP Bonus: {(prestige.xpBonus * 100).toFixed(0)}% | Gold Bonus:{' '}
+            {(prestige.goldBonus * 100).toFixed(0)}%
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-gray-700 bg-gray-800/60 p-4">
+          <div className="mb-3 text-sm text-gray-400">Unlocked Features</div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            {[
+              { name: 'Market', unlocked: totalLevel >= 1 },
+              { name: 'Cube System', unlocked: totalLevel >= 5 },
+              { name: 'Melt Panel', unlocked: totalLevel >= 3 },
+              { name: 'Pets', unlocked: totalLevel >= 10 },
+              { name: 'Runes Tree', unlocked: totalLevel >= 15 },
+              { name: 'Battle Arena', unlocked: totalLevel >= 20 },
+              { name: 'Chest System', unlocked: totalLevel >= 8 },
+              { name: 'Token Gate', unlocked: totalLevel >= 1 },
+            ].map((feature) => (
+              <div
+                key={feature.name}
+                className="flex items-center gap-2 text-white"
+              >
+                <span
+                  className={
+                    feature.unlocked ? 'text-green-400' : 'text-gray-500'
+                  }
+                >
+                  {feature.unlocked ? '&#10003;' : '&#9734;'}
+                </span>
+                {feature.name}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const renderHeroSelection = () => (
@@ -787,6 +1935,12 @@ export default function Page() {
     { id: 'equipment', label: 'Equipment' },
     { id: 'sockets', label: 'Sockets' },
     { id: 'inventory', label: 'Inventory' },
+    { id: 'market', label: 'Market' },
+    { id: 'cube', label: 'Cube' },
+    { id: 'melt', label: 'Melt' },
+    { id: 'pets', label: 'Pets' },
+    { id: 'runes', label: 'Runes' },
+    { id: 'progression', label: 'Progression' },
   ]
 
   return (
@@ -837,6 +1991,12 @@ export default function Page() {
           {activeTab === 'equipment' && renderEquipment()}
           {activeTab === 'sockets' && renderSockets()}
           {activeTab === 'inventory' && renderInventory()}
+          {activeTab === 'market' && renderMarket()}
+          {activeTab === 'cube' && renderCube()}
+          {activeTab === 'melt' && renderMelt()}
+          {activeTab === 'pets' && renderPets()}
+          {activeTab === 'runes' && renderRunes()}
+          {activeTab === 'progression' && renderProgression()}
         </main>
       </div>
     </div>

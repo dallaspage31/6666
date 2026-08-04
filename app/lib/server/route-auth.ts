@@ -3,24 +3,42 @@ import { getSession } from './session'
 import { verifyAdminToken, AdminTokenPayload } from './admin-security'
 import { getClientIp } from './request-ip'
 
-let globalRateLimiter: { check(ip: string): { allowed: boolean; remaining: number; reset: number } } | null = null
+let globalRateLimiter: {
+  check(ip: string): { allowed: boolean; remaining: number; reset: number }
+} | null = null
 
 try {
   const mod = await import('@/lib/rate-limit')
-  globalRateLimiter = (mod as { globalRateLimiter?: typeof globalRateLimiter }).globalRateLimiter ?? null
+  globalRateLimiter =
+    (mod as { globalRateLimiter?: typeof globalRateLimiter })
+      .globalRateLimiter ?? null
 } catch {
   globalRateLimiter = null
 }
 
 export type PlayerAuth = { playerId: string; ip: string }
-export type AdminAuth = { adminId: string; admin: AdminTokenPayload; ip: string }
+export type AdminAuth = {
+  adminId: string
+  admin: AdminTokenPayload
+  ip: string
+}
 
-export async function requirePlayer(req: NextRequest): Promise<PlayerAuth | NextResponse> {
+export async function requirePlayer(
+  req: NextRequest,
+): Promise<PlayerAuth | NextResponse> {
   const ip = getClientIp(req.headers)
   if (globalRateLimiter) {
     const rate = globalRateLimiter.check(ip)
     if (!rate.allowed) {
-      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429, headers: { 'Retry-After': String(Math.ceil((rate.reset - Date.now()) / 1000)) } })
+      return NextResponse.json(
+        { error: 'Rate limit exceeded' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rate.reset - Date.now()) / 1000)),
+          },
+        },
+      )
     }
   }
   const session = await getSession()
@@ -30,12 +48,22 @@ export async function requirePlayer(req: NextRequest): Promise<PlayerAuth | Next
   return { playerId: session.playerId, ip }
 }
 
-export async function requireAdmin(req: NextRequest): Promise<AdminAuth | NextResponse> {
+export async function requireAdmin(
+  req: NextRequest,
+): Promise<AdminAuth | NextResponse> {
   const ip = getClientIp(req.headers)
   if (globalRateLimiter) {
     const rate = globalRateLimiter.check(ip)
     if (!rate.allowed) {
-      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429, headers: { 'Retry-After': String(Math.ceil((rate.reset - Date.now()) / 1000)) } })
+      return NextResponse.json(
+        { error: 'Rate limit exceeded' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rate.reset - Date.now()) / 1000)),
+          },
+        },
+      )
     }
   }
   const auth = req.headers.get('authorization')

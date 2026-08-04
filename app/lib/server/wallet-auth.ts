@@ -39,13 +39,21 @@ function pruneNonces(): void {
   }
 }
 
-export async function verifySignature(address: string, signature: string, nonce: string): Promise<boolean> {
+export async function verifySignature(
+  address: string,
+  signature: string,
+  nonce: string,
+): Promise<boolean> {
   const key = address.toLowerCase()
   const record = nonceStore.get(key)
   if (!record || record.nonce !== nonce || record.used) return false
   record.used = true
   try {
-    const isValid = verifyMessage({ address: address as `0x${string}`, message: nonce, signature: signature as `0x${string}` })
+    const isValid = verifyMessage({
+      address: address as `0x${string}`,
+      message: nonce,
+      signature: signature as `0x${string}`,
+    })
     return isValid
   } catch {
     return false
