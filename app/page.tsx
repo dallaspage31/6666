@@ -39,6 +39,7 @@ import {
   RUNE_BRANCHES,
   RUNE_BRANCH_COLORS,
   BRANCH_TIERS,
+  TOTAL_RUNE_POINTS,
   type RuneBranch,
 } from '@/lib/game-data/runes'
 import { toast } from 'sonner'
@@ -191,6 +192,21 @@ const HERO_CHEST_PRICES = {
   Cosmic: 50,
 }
 
+const MARKET_BUY_MULTIPLIER = 10
+const MARKET_SELL_MULTIPLIER = 5
+
+const getBuyPrice = (rarity: string) =>
+  Math.floor(
+    (RARITY_MULTIPLIERS[rarity as keyof typeof RARITY_MULTIPLIERS] || 0) *
+      MARKET_BUY_MULTIPLIER,
+  )
+
+const getSellPrice = (rarity: string) =>
+  Math.floor(
+    (RARITY_MULTIPLIERS[rarity as keyof typeof RARITY_MULTIPLIERS] || 0) *
+      MARKET_SELL_MULTIPLIER,
+  )
+
 export default function Page() {
   const game = useGameContext()
   const [activeTab, setActiveTab] = useState<Tab>('heroes')
@@ -210,6 +226,17 @@ export default function Page() {
   )
   const [selectedCubeSlot, setSelectedCubeSlot] =
     useState<ItemSlot>('Main Hand')
+  const [selectedCubeItems, setSelectedCubeItems] = useState<string[]>([])
+  const toggleCubeItem = (id: string) => {
+    setSelectedCubeItems((prev) =>
+      prev.includes(id)
+        ? prev.filter((i) => i !== id)
+        : prev.length >= 9
+          ? prev
+          : [...prev, id],
+    )
+  }
+  const clearCubeSelection = () => setSelectedCubeItems([])
   const [selectedRuneBranch, setSelectedRuneBranch] =
     useState<RuneBranch>('Power')
   const [selectedPet, setSelectedPet] = useState<string | null>(null)
@@ -318,17 +345,23 @@ export default function Page() {
   const handleLevelUp = () => {
     if (!game.selectedHero) return
     const nextLevel = totalLevel + 1
-    const xpBonus = getPetBonus('xp')
+    const petXpBonus = getPetBonus('xp')
+    const prestigeXpBonus = prestige.xpBonus * 100
+    const totalXpBonus = petXpBonus + prestigeXpBonus
     const xpNeeded = Math.floor(
-      (XP_TABLE[totalLevel - 1]?.xpRequired ?? 100) * (1 - xpBonus / 100),
+      (XP_TABLE[totalLevel - 1]?.xpRequired ?? 100) * (1 - totalXpBonus / 100),
     )
     if (game.xp >= xpNeeded) {
+      const earnedRunePoints = game.runePoints < TOTAL_RUNE_POINTS ? 1 : 0
       game.setXp(game.xp - xpNeeded)
       game.setSelectedHero({ ...game.selectedHero, level: nextLevel })
+      game.setRunePoints(
+        Math.min(game.runePoints + earnedRunePoints, TOTAL_RUNE_POINTS),
+      )
       toast.success(
         `Level up! Now level ${nextLevel}${
-          xpBonus > 0 ? ` (+${xpBonus}% XP bonus)` : ''
-        }`,
+          totalXpBonus > 0 ? ` (+${Math.round(totalXpBonus)}% XP bonus)` : ''
+        }${earnedRunePoints > 0 ? ' +1 Rune Point' : ''}`,
       )
     } else {
       toast.info(`Need ${xpNeeded} XP to level up.`)
@@ -413,8 +446,7 @@ export default function Page() {
       toast.error('Only Legendary+ items can be bought from the market')
       return
     }
-    const price =
-      RARITY_MULTIPLIERS[item.rarity as keyof typeof RARITY_MULTIPLIERS] * 10
+    const price = getBuyPrice(item.rarity)
     if (game.gold < price) {
       toast.error(`Need ${price.toLocaleString()} Gold to buy ${itemName}`)
       return
@@ -456,16 +488,16 @@ export default function Page() {
       )
       return
     }
-    const price = Math.floor(
-      RARITY_MULTIPLIERS[item.rarity as keyof typeof RARITY_MULTIPLIERS] * 10,
-    )
-    const goldBonus = getPetBonus('gold')
-    const bonusPrice = Math.floor(price * (1 + goldBonus / 100))
+    const price = getSellPrice(item.rarity)
+    const petGoldBonus = getPetBonus('gold')
+    const prestigeGoldBonus = prestige.goldBonus * 100
+    const totalGoldBonus = petGoldBonus + prestigeGoldBonus
+    const bonusPrice = Math.floor(price * (1 + totalGoldBonus / 100))
     game.setGold(game.gold + bonusPrice)
     game.setInventory(inventory.filter((i) => i.id !== itemId))
     toast.success(
       `Sold ${item.name || 'item'} for ${bonusPrice.toLocaleString()} Gold${
-        goldBonus > 0 ? ` (+${goldBonus}% pet bonus)` : ''
+        totalGoldBonus > 0 ? ` (+${Math.round(totalGoldBonus)}% bonus)` : ''
       }`,
     )
   }
@@ -514,13 +546,28 @@ export default function Page() {
   }
 
   const handleSynthesize = () => {
-    if (inventory.length < 9) {
-      toast.error('Need at least 9 items to synthesize')
+    const consumedItems = inventory.filter((i) =>
+      selectedCubeItems.includes(i.id),
+    )
+    if (consumedItems.length < 9) {
+      toast.error(
+        'Select exactly 9 items to synthesize (currently selected: ' +
+          consumedItems.length +
+          ')',
+      )
       return
     }
-    const consumedItems = inventory.slice(0, 9)
-    const remainingItems = inventory.slice(9)
-    const rarities = consumedItems.map((i) => i.rarity)
+    const usedItems = consumedItems.slice(0, 9)
+    const remainingItems = inventory.filter(
+      (i) => !selectedCubeItems.includes(i.id),
+    )
+    if (
+      !window.confirm(
+        `Synthesize 9 items? They will be consumed. This cannot be undone.`,
+      )
+    )
+      return
+    const rarities = usedItems.map((i) => i.rarity)
     const uniqueRarities = [...new Set(rarities)]
     if (uniqueRarities.length !== 1) {
       toast.error('All 9 items must be the same rarity')
@@ -568,16 +615,31 @@ export default function Page() {
         })),
     }
     game.setInventory([...remainingItems, newItem])
+    clearCubeSelection()
     toast.success(`Synthesized! ${currentRarity} → ${newRarity}`)
   }
 
   const handleRecycle = () => {
-    if (inventory.length < 9) {
-      toast.error('Need at least 9 items to recycle')
+    const selectedCount = selectedCubeItems.filter((id) =>
+      inventory.some((i) => i.id === id),
+    ).length
+    if (selectedCount < 9) {
+      toast.error(
+        'Select exactly 9 items to recycle (currently selected: ' +
+          selectedCount +
+          ')',
+      )
       return
     }
-    const consumedItems = inventory.slice(0, 9)
-    const remainingItems = inventory.slice(9)
+    const remainingItems = inventory.filter(
+      (i) => !selectedCubeItems.includes(i.id),
+    )
+    if (
+      !window.confirm(
+        `Recycle 9 items? They will be destroyed. This cannot be undone.`,
+      )
+    )
+      return
     const roll = Math.random()
     let reward: string
     if (roll < 0.65) {
@@ -617,6 +679,7 @@ export default function Page() {
       sockets: [],
     }
     game.setInventory([...remainingItems, newItem])
+    clearCubeSelection()
     toast.success(`Recycled 9 items! Received: ${rewardName}`)
   }
 
@@ -667,8 +730,10 @@ export default function Page() {
     if (!window.confirm(`Melt ${item.name || 'item'}? This cannot be undone.`))
       return
     const value = getMeltValue(item)
-    const goldBonus = getPetBonus('gold')
-    const bonusValue = Math.floor(value * (1 + goldBonus / 100))
+    const petGoldBonus = getPetBonus('gold')
+    const prestigeGoldBonus = prestige.goldBonus * 100
+    const totalGoldBonus = petGoldBonus + prestigeGoldBonus
+    const bonusValue = Math.floor(value * (1 + totalGoldBonus / 100))
     const material =
       ALL_MATERIALS[Math.floor(Math.random() * ALL_MATERIALS.length)]
     const materialItem = {
@@ -689,7 +754,7 @@ export default function Page() {
     ])
     toast.success(
       `Melted ${item.name || 'item'} for ${bonusValue} Gold${
-        goldBonus > 0 ? ` (+${goldBonus}% pet bonus)` : ''
+        totalGoldBonus > 0 ? ` (+${Math.round(totalGoldBonus)}% bonus)` : ''
       } + ${material}`,
     )
   }
@@ -808,11 +873,7 @@ export default function Page() {
                   i.rarity === marketFilterRarity,
               )
               .map((item) => {
-                const price = Math.floor(
-                  RARITY_MULTIPLIERS[
-                    item.rarity as keyof typeof RARITY_MULTIPLIERS
-                  ] * 10,
-                )
+                const price = getBuyPrice(item.rarity)
                 const rarity = item.rarity as keyof typeof RARITY_COLORS
                 return (
                   <div
@@ -871,11 +932,7 @@ export default function Page() {
                     i.rarity === 'Cosmic',
                 )
                 .map((item) => {
-                  const price = Math.floor(
-                    RARITY_MULTIPLIERS[
-                      item.rarity as keyof typeof RARITY_MULTIPLIERS
-                    ] * 10,
-                  )
+                  const price = getSellPrice(item.rarity)
                   const rarity = item.rarity as keyof typeof RARITY_COLORS
                   return (
                     <div
@@ -951,6 +1008,31 @@ export default function Page() {
     </div>
   )
 
+  const renderCubeItemSelector = () => (
+    <div className="grid max-h-60 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+      {inventory.map((item) => {
+        const selected = selectedCubeItems.includes(item.id)
+        const rarity = item.rarity as keyof typeof RARITY_COLORS
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => toggleCubeItem(item.id)}
+            className={`flex items-center justify-between rounded-lg border-2 p-2 text-left ${
+              selected
+                ? 'border-cyan-400 ring-2 ring-cyan-400'
+                : 'border-gray-700'
+            } ${RARITY_BG[rarity] || ''}`}
+          >
+            <span className="text-xs font-semibold">{item.name || 'Item'}</span>
+            <span className="text-xs opacity-70">{item.rarity}</span>
+            {selected && <span className="ml-1 text-cyan-400">&#10003;</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+
   const renderCube = () => (
     <div className="space-y-4">
       <h2 className="text-2xl font-bold text-white">Cube System</h2>
@@ -962,7 +1044,10 @@ export default function Page() {
         ].map((t) => (
           <button
             key={t.id}
-            onClick={() => setCubeTab(t.id as typeof cubeTab)}
+            onClick={() => {
+              setCubeTab(t.id as typeof cubeTab)
+              clearCubeSelection()
+            }}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               cubeTab === t.id
                 ? 'bg-blue-600 text-white'
@@ -978,21 +1063,23 @@ export default function Page() {
           <div className="text-sm text-gray-400">
             Combine 9 items of the same rarity to upgrade rarity
           </div>
-          <div className="rounded-xl border border-gray-700 bg-gray-800/60 p-4">
-            <div className="mb-2 text-sm font-medium text-white">
-              Inventory: {inventory.length} items
-            </div>
-            <div className="mb-3 text-xs text-gray-400">
-              Need 9 items of the same rarity
-            </div>
+          <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
+            <span>Selected: {selectedCubeItems.length}/9 items</span>
             <button
-              onClick={handleSynthesize}
-              disabled={inventory.length < 9}
-              className="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-gray-600"
+              onClick={clearCubeSelection}
+              className="rounded bg-gray-700 px-2 py-0.5 text-xs text-white hover:bg-gray-600"
             >
-              Synthesize (9 items)
+              Clear
             </button>
           </div>
+          {renderCubeItemSelector()}
+          <button
+            onClick={handleSynthesize}
+            disabled={selectedCubeItems.length < 9}
+            className="w-full rounded-lg bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-gray-600"
+          >
+            Synthesize ({selectedCubeItems.length}/9)
+          </button>
         </div>
       )}
       {cubeTab === 'recycle' && (
@@ -1000,21 +1087,23 @@ export default function Page() {
           <div className="text-sm text-gray-400">
             Recycle 9 items for a random reward
           </div>
-          <div className="rounded-xl border border-gray-700 bg-gray-800/60 p-4">
-            <div className="mb-2 text-sm font-medium text-white">
-              Inventory: {inventory.length} items
-            </div>
-            <div className="mb-3 text-xs text-gray-400">
-              Rewards: 65% Equipment, 15% Material, 13% Gem, 7% Engraving
-            </div>
+          <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
+            <span>Selected: {selectedCubeItems.length}/9 items</span>
             <button
-              onClick={handleRecycle}
-              disabled={inventory.length < 9}
-              className="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-gray-600"
+              onClick={clearCubeSelection}
+              className="rounded bg-gray-700 px-2 py-0.5 text-xs text-white hover:bg-gray-600"
             >
-              Recycle (9 items)
+              Clear
             </button>
           </div>
+          {renderCubeItemSelector()}
+          <button
+            onClick={handleRecycle}
+            disabled={selectedCubeItems.length < 9}
+            className="w-full rounded-lg bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-gray-600"
+          >
+            Recycle ({selectedCubeItems.length}/9)
+          </button>
         </div>
       )}
       {cubeTab === 'craft' && (
