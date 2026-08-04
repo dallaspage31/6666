@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createWalletClient, custom, http } from 'viem'
-// @ts-ignore
-import { useConnection, useWallet } from '@solana/react'
 import { toast } from 'sonner'
 import { ROBINHOOD_CHAIN, ChainEnv } from '@/lib/robinhood-chain'
 
@@ -34,8 +32,6 @@ export function useWallet(): WalletState {
   const [connecting, setConnecting] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
-  const solanaConnection = useConnection()
-  const solanaWallet = useWallet()
   const evmAddressRef = useRef<string | null>(null)
 
   const config =
@@ -67,7 +63,6 @@ export function useWallet(): WalletState {
     setConnecting(true)
     setError(null)
     let hasEvmWallet = false
-    let hasSolWallet = false
 
     try {
       if (
@@ -95,31 +90,13 @@ export function useWallet(): WalletState {
         }
       }
 
-      if (
-        solanaWallet.connected &&
-        (solanaWallet as unknown as { publicKey?: { toString: () => string } })
-          .publicKey
-      ) {
-        setSolAddress(
-          (
-            solanaWallet as unknown as { publicKey: { toString: () => string } }
-          ).publicKey.toString(),
-        )
-        hasSolWallet = true
-      }
-
-      if (hasEvmWallet || hasSolWallet) {
+      if (hasEvmWallet) {
         setConnected(true)
-        if (hasEvmWallet) {
-          toast.success(
-            `EVM connected: ${evmAddressRef.current!.slice(0, 6)}...${evmAddressRef.current!.slice(-4)}`,
-          )
-        }
-        if (hasSolWallet) {
-          toast.success('Solana wallet connected')
-        }
+        toast.success(
+          `EVM connected: ${evmAddressRef.current!.slice(0, 6)}...${evmAddressRef.current!.slice(-4)}`,
+        )
       } else {
-        toast.info('No wallet detected. Install MetaMask or a Solana wallet.')
+        toast.info('No wallet detected. Install MetaMask.')
       }
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err))
@@ -128,7 +105,7 @@ export function useWallet(): WalletState {
     } finally {
       setConnecting(false)
     }
-  }, [config, solanaWallet])
+  }, [config])
 
   const disconnect = useCallback(() => {
     setConnected(false)
