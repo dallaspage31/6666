@@ -1,7 +1,10 @@
+name: CI
 on:
   pull_request
   push
   workflow_dispatch
+permissions:
+  contents: read
 jobs:
   ci:
     runs-on: ubuntu-22.04
@@ -12,4 +15,3 @@ jobs:
           node-version: '20'
       - run: npm ci
       - run: npm run ci
-name: CI
