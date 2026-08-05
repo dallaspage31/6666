@@ -1,7 +1,10 @@
-on: [pull_request, push, workflow_dispatch]
-
+name: CI
+on:
+  pull_request
+  push
+  workflow_dispatch
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -10,4 +13,3 @@ jobs:
           node-version: '20'
       - run: npm ci
       - run: npm run ci
-# test
