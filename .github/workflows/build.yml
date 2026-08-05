@@ -1,8 +1,5 @@
 name: Build
-on:
-  pull_request:
-  push:
-  workflow_dispatch:
+on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,4 +9,4 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
-      - run: npm run ci
+      - run: npm run build
