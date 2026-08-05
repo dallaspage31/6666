@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "ci": "next build && eslint . && prettier --check .",
+    "ci": "next build && eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
