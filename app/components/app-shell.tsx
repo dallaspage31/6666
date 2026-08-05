@@ -9,11 +9,9 @@ interface AppShellProps {
 
 export default function AppShell({ children }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
+    <div className="flex min-h-screen flex-col bg-gray-950 text-gray-100">
       <AppHeader />
-      <main className="flex-1 container mx-auto px-4 py-6">
-        {children}
-      </main>
+      <main className="container mx-auto flex-1 px-4 py-6">{children}</main>
       <footer className="border-t border-gray-800 py-4 text-center text-sm text-gray-500">
         ROBHEROES &copy; 2026
       </footer>

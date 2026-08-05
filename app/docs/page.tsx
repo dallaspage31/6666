@@ -5,7 +5,8 @@ import Link from 'next/link'
 const docs = [
   {
     title: 'Installation',
-    description: 'Setup the development environment and run the project locally.',
+    description:
+      'Setup the development environment and run the project locally.',
     href: '/docs/installation',
   },
   {

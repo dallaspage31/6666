@@ -15,7 +15,9 @@ function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'dark'
   const stored = localStorage.getItem('robheroes-theme') as Theme | null
   if (stored === 'light' || stored === 'dark') return stored
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+  return window.matchMedia('(prefers-color-scheme: light)').matches
+    ? 'light'
+    : 'dark'
 }
 
 function applyTheme(theme: Theme) {
