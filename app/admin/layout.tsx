@@ -1,9 +1,9 @@
-import Link from 'next/link'
+import Link from "next/link";
 
 export default function AdminLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
@@ -40,5 +40,5 @@ export default function AdminLayout({
       </aside>
       <div className="lg:col-span-3">{children}</div>
     </div>
-  )
+  );
 }

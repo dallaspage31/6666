@@ -1,9 +1,9 @@
-import Link from 'next/link'
+import Link from "next/link";
 
 export const metadata = {
-  title: 'ROBHEROES - Robo Heroes Game',
-  description: 'Play Robo Heroes and battle in automated PvP combat',
-}
+  title: "ROBHEROES - Robo Heroes Game",
+  description: "Play Robo Heroes and battle in automated PvP combat",
+};
 
 export default function Page() {
   return (
@@ -80,5 +80,5 @@ export default function Page() {
         </div>
       </section>
     </div>
-  )
+  );
 }

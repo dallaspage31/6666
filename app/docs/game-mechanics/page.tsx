@@ -32,14 +32,20 @@ export default function GameMechanicsDocs() {
         />
       </div>
     </div>
-  )
+  );
 }
 
-function MechanicsCard({ title, description }: { title: string; description: string }) {
+function MechanicsCard({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900 p-6">
       <h3 className="text-lg font-semibold text-white">{title}</h3>
       <p className="mt-2 text-sm text-gray-400">{description}</p>
     </div>
-  )
+  );
 }

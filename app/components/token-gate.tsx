@@ -1,43 +1,43 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import type { ReactNode } from 'react'
+import { useState } from "react";
+import type { ReactNode } from "react";
 
 interface TokenGateProps {
-  requiredAmount: number
-  tokenSymbol?: string
-  children: ReactNode
-  fallback?: ReactNode
+  requiredAmount: number;
+  tokenSymbol?: string;
+  children: ReactNode;
+  fallback?: ReactNode;
 }
 
 export function TokenGate({
   requiredAmount,
-  tokenSymbol = 'ROBHEROES',
+  tokenSymbol = "ROBHEROES",
   children,
   fallback,
 }: TokenGateProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [hasAccess, setHasAccess] = useState(false)
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
 
   const handleVerify = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const res = await fetch('/api/token-balance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/token-balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tokenSymbol, requiredAmount }),
-      })
-      const data = await res.json()
-      setHasAccess(data.hasAccess ?? false)
+      });
+      const data = await res.json();
+      setHasAccess(data.hasAccess ?? false);
     } catch {
-      setHasAccess(false)
+      setHasAccess(false);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   if (hasAccess) {
-    return <>{children}</>
+    return <>{children}</>;
   }
 
   return (
@@ -55,8 +55,8 @@ export function TokenGate({
         disabled={isLoading}
         className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors text-gray-300 disabled:opacity-50"
       >
-        {isLoading ? 'Verifying...' : 'Verify Token Ownership'}
+        {isLoading ? "Verifying..." : "Verify Token Ownership"}
       </button>
     </div>
-  )
+  );
 }
