@@ -1,7 +1,17 @@
-name: Test
-on: [push, pull_request, workflow_dispatch]
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 jobs:
-  test:
-    runs-on: ubuntu-22.04
+  build:
+    runs-on: ubuntu-latest
     steps:
-      - run: echo "Hello, World!"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint
+      - run: npm run format:check
