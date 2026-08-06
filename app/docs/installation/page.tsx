@@ -15,11 +15,13 @@ export default function InstallationDocs() {
           </ul>
         </section>
         <section>
-          <h2 className="text-xl font-semibold text-white">Clone and install</h2>
+          <h2 className="text-xl font-semibold text-white">
+            Clone and install
+          </h2>
           <pre className="mt-3 overflow-x-auto rounded-lg border border-gray-800 bg-gray-900 p-4">
             <code className="text-sm text-cyan-300">
-              git clone https://github.com/robheroes/project.git{'\n'}
-              cd project{'\n'}
+              git clone https://github.com/robheroes/project.git{"\n"}
+              cd project{"\n"}
               npm install
             </code>
           </pre>
@@ -27,22 +29,28 @@ export default function InstallationDocs() {
         <section>
           <h2 className="text-xl font-semibold text-white">Environment</h2>
           <p className="mt-3 text-gray-300">
-            Copy <code className="rounded bg-gray-800 px-1.5 py-0.5 text-cyan-300">.env.example</code> to{' '}
-            <code className="rounded bg-gray-800 px-1.5 py-0.5 text-cyan-300">.env.local</code> and fill in your
-            database, Solana, and wallet credentials.
+            Copy{" "}
+            <code className="rounded bg-gray-800 px-1.5 py-0.5 text-cyan-300">
+              .env.example
+            </code>{" "}
+            to{" "}
+            <code className="rounded bg-gray-800 px-1.5 py-0.5 text-cyan-300">
+              .env.local
+            </code>{" "}
+            and fill in your database, Solana, and wallet credentials.
           </p>
         </section>
         <section>
           <h2 className="text-xl font-semibold text-white">Run</h2>
           <pre className="mt-3 overflow-x-auto rounded-lg border border-gray-800 bg-gray-900 p-4">
             <code className="text-sm text-cyan-300">
-              npm run dev{'\n'}
-              npm run build{'\n'}
+              npm run dev{"\n"}
+              npm run build{"\n"}
               npm start
             </code>
           </pre>
         </section>
       </div>
     </div>
-  )
+  );
 }

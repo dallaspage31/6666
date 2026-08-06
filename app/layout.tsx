@@ -1,23 +1,23 @@
-import Link from 'next/link'
-import { ThemeProvider } from './providers'
-import { ThemeToggle } from './components/theme-toggle'
-import './globals.css'
+import Link from "next/link";
+import { ThemeProvider } from "./providers";
+import { ThemeToggle } from "./components/theme-toggle";
+import "./globals.css";
 
 export const metadata = {
-  title: 'ROBHEROES',
-  description: 'Robo Heroes Game',
-}
+  title: "ROBHEROES",
+  description: "Robo Heroes Game",
+};
 
 const navItems = [
-  { href: '/', label: 'Game' },
-  { href: '/admin', label: 'Admin' },
-  { href: '/docs', label: 'Docs' },
-]
+  { href: "/", label: "Game" },
+  { href: "/admin", label: "Admin" },
+  { href: "/docs", label: "Docs" },
+];
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en" className="dark">
@@ -53,5 +53,5 @@ export default function RootLayout({
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }
