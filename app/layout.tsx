@@ -15,9 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <GameProvider>
-          {children}
-        </GameProvider>
+        <GameProvider>{children}</GameProvider>
       </body>
     </html>
   )

@@ -45,6 +45,22 @@ interface InventoryItem {
   sockets: { gem: string | null; engraving: string | null }[]
 }
 
+export interface Pet {
+  id: string
+  name: string
+  bonusType: string
+  bonusValue: number
+  equipped: boolean
+}
+
+export interface PlayerRune {
+  id: string
+  branch: string
+  name: string
+  tier: number
+  points: number
+}
+
 interface GameState {
   currentView: View
   setCurrentView: (view: View) => void
@@ -61,6 +77,14 @@ interface GameState {
   equipped: Record<ItemSlot, InventoryItem | null>
   setEquipped: (slot: ItemSlot, item: InventoryItem | null) => void
   unequipAll: () => void
+  pets: Pet[]
+  setPets: (pets: Pet[]) => void
+  equippedPet: Pet | null
+  setEquippedPet: (pet: Pet | null) => void
+  runes: PlayerRune[]
+  setRunes: (runes: PlayerRune[]) => void
+  runePoints: number
+  setRunePoints: (points: number) => void
 }
 
 const STORAGE_KEY = 'solaria-save-balance-v4'
@@ -84,6 +108,14 @@ const DEFAULT_STATE: GameState = {
   ),
   setEquipped: () => {},
   unequipAll: () => {},
+  pets: [],
+  setPets: () => {},
+  equippedPet: null,
+  setEquippedPet: () => {},
+  runes: [],
+  setRunes: () => {},
+  runePoints: 0,
+  setRunePoints: () => {},
 }
 
 const GameContext = createContext<GameState>(DEFAULT_STATE)
@@ -107,6 +139,10 @@ function loadState(): Partial<GameState> {
           (acc, slot) => ({ ...acc, [slot]: null }),
           {} as Record<ItemSlot, InventoryItem | null>,
         ),
+      pets: parsed.pets ?? [],
+      equippedPet: parsed.equippedPet ?? null,
+      runes: parsed.runes ?? [],
+      runePoints: parsed.runePoints ?? 0,
     }
   } catch {
     return {}
@@ -138,6 +174,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         {} as Record<ItemSlot, InventoryItem | null>,
       ),
   )
+  const [pets, setPets] = useState<Pet[]>(() => loadState().pets ?? [])
+  const [equippedPet, setEquippedPet] = useState<Pet | null>(
+    () => loadState().equippedPet ?? null,
+  )
+  const [runes, setRunes] = useState<PlayerRune[]>(
+    () => loadState().runes ?? [],
+  )
+  const [runePoints, setRunePoints] = useState<number>(
+    () => loadState().runePoints ?? 0,
+  )
 
   useEffect(() => {
     const stateToSave = {
@@ -148,6 +194,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       inventory,
       robheroesBalance,
       equipped,
+      pets,
+      equippedPet,
+      runes,
+      runePoints,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave))
   }, [
@@ -158,6 +208,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     inventory,
     robheroesBalance,
     equipped,
+    pets,
+    equippedPet,
+    runes,
+    runePoints,
   ])
 
   const setEquippedItem = useCallback(
@@ -204,6 +258,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     equipped,
     setEquipped: setEquippedItem,
     unequipAll,
+    pets,
+    setPets,
+    equippedPet,
+    setEquippedPet,
+    runes,
+    setRunes,
+    runePoints,
+    setRunePoints,
   }
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>
