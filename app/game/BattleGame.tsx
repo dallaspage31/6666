@@ -6,13 +6,13 @@ import {
   WAVE_CONFIGS,
   BOSS_CONFIGS,
   MAX_WAVE,
-} from '@/lib/combat-config'
+} from '../lib/combat-config'
 import type {
   CombatPhase,
   CombatLogEntry,
   CombatResult,
-} from '@/lib/combat-types'
-import { HERO_RARITY_CONFIGS } from '@/lib/hero-rarity'
+} from '../lib/combat-types'
+import { HERO_RARITY_CONFIGS } from '../lib/hero-rarity'
 
 interface HeroState {
   id: string
@@ -65,6 +65,7 @@ interface ParallaxLayer {
 export default function BattleGame() {
   const containerRef = useRef<HTMLDivElement>(null)
   const gameRef = useRef<Phaser.Game | null>(null)
+  const timeoutRefs = useRef<Set<NodeJS.Timeout>>(new Set())
   const [overlay, setOverlay] = useState<{
     phase: CombatPhase
     wave: number
@@ -127,6 +128,8 @@ export default function BattleGame() {
     const cleanup = createGame()
     return () => {
       stateUpdateCallback = null
+      timeoutRefs.current.forEach((id) => clearTimeout(id))
+      timeoutRefs.current.clear()
       if (cleanup) cleanup()
     }
   }, [createGame])
@@ -466,6 +469,7 @@ function scheduleNextTurn() {
   if (battleResult) return
 
   const timeout = setTimeout(() => {
+    timeoutRefs.current.delete(timeout)
     switch (battlePhase) {
       case 'wave-intro':
         transitionToActive()
@@ -489,6 +493,8 @@ function scheduleNextTurn() {
         break
     }
   }, turnDelayMs)
+
+  timeoutRefs.current.add(timeout)
 }
 
 function transitionToActive() {
@@ -683,15 +689,8 @@ function endWave() {
 
   turnDelayMs = 1500
 
-  const bossConfig = BOSS_CONFIGS[currentWave]
-  if (bossConfig) {
-    battlePhase = 'boss-intro'
-    addLog(`BOSS WAVE ${currentWave} incoming...`, 'wave-start')
-  } else {
-    battlePhase = 'wave-outro'
-    addLog('Prepare for the next wave...', 'wave-end')
-  }
-
+  battlePhase = 'wave-outro'
+  addLog('Prepare for the next wave...', 'wave-end')
   scheduleNextTurn()
 }
 
