@@ -18,24 +18,6 @@ export default function AdminLayout({
           >
             Dashboard
           </Link>
-          <Link
-            href="/admin/players"
-            className="block rounded-md px-3 py-2 text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white"
-          >
-            Players
-          </Link>
-          <Link
-            href="/admin/game-settings"
-            className="block rounded-md px-3 py-2 text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white"
-          >
-            Game Settings
-          </Link>
-          <Link
-            href="/admin/items"
-            className="block rounded-md px-3 py-2 text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white"
-          >
-            Items
-          </Link>
         </nav>
       </aside>
       <div className="lg:col-span-3">{children}</div>
