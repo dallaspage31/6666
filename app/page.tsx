@@ -169,9 +169,13 @@ export default function Page() {
   }, [game.selectedHero, game.xp, totalLevel])
 
   const prestige = useMemo(() => {
-    const rank = PRESTIGE_RANKS[PRESTIGE_RANKS.length - 1]
-    return { ...rank, rank: PRESTIGE_RANKS.length }
-  }, [])
+    if (!game.selectedHero) return PRESTIGE_RANKS[0]
+    const rank = PRESTIGE_RANKS
+      .slice()
+      .reverse()
+      .find((r) => r.requiredPrestige <= totalLevel)
+    return rank || PRESTIGE_RANKS[0]
+  }, [game.selectedHero, totalLevel])
 
   const filteredInventory = useMemo(() => {
     return inventory.filter((item) => {

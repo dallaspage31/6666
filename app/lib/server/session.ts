@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers'
 import crypto from 'crypto'
 
-const SESSION_SECRET =
-  process.env.SESSION_SECRET || 'robheroes-session-secret-change-in-production'
+const SESSION_SECRET = process.env.SESSION_SECRET
+if (!SESSION_SECRET) {
+  throw new Error('SESSION_SECRET environment variable is required')
+}
 const SESSION_COOKIE = 'robheroes_session'
 const PLAYER_EXPIRY = 3600
 const ADMIN_EXPIRY = 86400

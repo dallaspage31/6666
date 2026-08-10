@@ -2,15 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from './session'
 import { verifyAdminToken, AdminTokenPayload } from './admin-security'
 import { getClientIp } from './request-ip'
-
-let globalRateLimiter: { check(ip: string): { allowed: boolean; remaining: number; reset: number } } | null = null
-
-try {
-  const mod = await import('@/lib/rate-limit')
-  globalRateLimiter = (mod as { globalRateLimiter?: typeof globalRateLimiter }).globalRateLimiter ?? null
-} catch {
-  globalRateLimiter = null
-}
+import { globalRateLimiter } from '@/lib/rate-limit'
 
 export type PlayerAuth = { playerId: string; ip: string }
 export type AdminAuth = { adminId: string; admin: AdminTokenPayload; ip: string }
